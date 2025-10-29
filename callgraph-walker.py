@@ -20,8 +20,9 @@ pattern_fn = re.compile(r'^([0-9a-f]+) <(.+)>:')
 pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+[0-9a-f]+\s+<(.+)>')
 
 class Symbol:
-    def __init__(self, name: str):
+    def __init__(self, name: str, offset: int = 0):
         self.name = name
+        self.offset = offset
         self.callees: Set[str] = set()
 
 
@@ -38,7 +39,7 @@ def parse_objdump(elf_file):
         m = pattern_fn.match(line)
         if m:
             cur_fn = m.group(2)
-            symbols[cur_fn] = Symbol(cur_fn)
+            symbols[cur_fn] = Symbol(cur_fn, int(m.group(1), 16))
         m = pattern_call.match(line)
         if m:
             if not cur_fn:
