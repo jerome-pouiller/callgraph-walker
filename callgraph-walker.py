@@ -17,6 +17,71 @@ def action_list_cycles(cycles):
     for k, v in enumerate(cycles):
         print(f"{k} -> {', '.join(v)}")
 
+def action_health(symbols):
+    """List symbols with errors or missing information."""
+    syms = []
+    for name in sorted(symbols):
+        if symbols[name].sym_not_found:
+            syms.append(name)
+    if syms:
+        print(f"Symbol not found:")
+        print(f"  {', '.join(syms)}")
+        print()
+
+    syms = []
+    for name in sorted(symbols):
+        if symbols[name].sym_name_mismatch:
+            syms.append(name)
+    if syms:
+        print(f"Symbol name mismatch:")
+        print(f"  {', '.join(syms)}")
+        print()
+
+    syms = []
+    for name in sorted(symbols):
+        if symbols[name].size < 0:
+            syms.append(name)
+    if syms:
+        print(f"Size unknown:")
+        print(f"  {', '.join(syms)}")
+        print()
+
+    syms = []
+    for name in sorted(symbols):
+        if not symbols[name].src_file:
+            syms.append(name)
+    if syms:
+        print(f"Source not found:")
+        print(f"  {', '.join(syms)}")
+        print()
+
+    syms = []
+    for name in sorted(symbols):
+        if symbols[name].sym_type not in ['t', 'T', 'w', 'W']:
+            syms.append(f"{name} ({symbols[name].sym_type})")
+    if syms:
+        print(f"Type incorrect:")
+        print(f"  {', '.join(syms)}")
+        print()
+
+    syms = []
+    for name in sorted(symbols):
+        if symbols[name].indirect_call:
+            syms.append(name)
+    if syms:
+        print(f"Has indriect calls:")
+        print(f"  {', '.join(syms)}")
+        print()
+
+    syms = []
+    for name in sorted(symbols):
+        if symbols[name].cycles:
+            syms.append(name)
+    if syms:
+        print(f"Part of a cycle:")
+        print(f"  {', '.join(syms)}")
+        print()
+
 def show(sym):
         print(f"Symbol: {sym.name}")
         print(f"  offset: 0x{sym.offset:x}")
@@ -67,6 +132,8 @@ def main():
     cycles = detect_recursion(symbols)
     if action == 'list_cycles':
         action_list_cycles(cycles)
+    elif action == 'health':
+        action_health(symbols)
     elif action == 'show':
         if not args.args:
             print("Error: 'show' action requires at least one symbol name")
