@@ -17,6 +17,7 @@ from typing import Dict, Set
 # Change these values accordingly to you environment
 cmd_objdump = "objdump"
 cmd_nm = "nm"
+cmd_addr2line = "addr2line"
 pattern_fn = re.compile(r'^([0-9a-f]+) <(.+)>:')
 pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+([0-9a-f]+)\s+<(.+)>')
 pattern_fn_ptr = re.compile(r'^\s+([0-9a-f]+):\s+.+\s+bl[x]?\s+(r\d+)')
@@ -37,7 +38,7 @@ class Symbol:
         self.cycles: Set[int] = set()
         self.sym_not_found = True
         self.su_not_found = True
-        self.indirect_call: list = []
+        self.indirect_call: list = []  # List of tuples (offset, src_file, src_line)
 
 
 def parse_objdump(elf_file):
@@ -67,7 +68,7 @@ def parse_objdump(elf_file):
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            symbols[cur_fn].indirect_call.append(int(m.group(1), 16))
+            symbols[cur_fn].indirect_call.append((int(m.group(1), 16), "", -1))
     return symbols
 
 
@@ -172,6 +173,55 @@ def add_su_info(symbols, search_dir):
             sym.frame_size, sym.frame_qualifiers = su_data[su_key]
             sym.su_not_found = False
     return True
+
+
+def parse_addr2line(elf_file, addresses):
+    if not addresses:
+        return {}
+
+    try:
+        # Pass addresses as hex strings to addr2line
+        addr_input = '\n'.join([f'{addr:x}' for addr in addresses])
+        output = subprocess.check_output([cmd_addr2line, '-e', elf_file],
+                                         input=addr_input,
+                                         universal_newlines=True)
+    except subprocess.CalledProcessError:
+        return {}
+
+    result = {}
+
+    # Format:
+    #  file:line (discriminator X)
+    #  file:line
+    #  ??:?
+    for i, line in enumerate(output.strip().split('\n')):
+        parts = line.rsplit(':', 1)
+        src_file = parts[0] if parts[0] != '??' else ""
+        src_line = parts[1].split()[0]  if parts[1] != '?' else "-1"
+        result[addresses[i]] = (src_file, int(src_line))
+
+    return result
+
+
+def add_addr2line_info(symbols, elf_file):
+    all_offsets = []
+    for sym in symbols.values():
+        for offset, _, _ in sym.indirect_call:
+            all_offsets.append(offset)
+
+    if not all_offsets:
+        return
+    addr2line_data = parse_addr2line(elf_file, all_offsets)
+    for sym in symbols.values():
+        updated_calls = []
+        for offset, _, _ in sym.indirect_call:
+            if offset in addr2line_data:
+                src_file, src_line = addr2line_data[offset]
+                updated_calls.append((offset, src_file, src_line))
+            else:
+                updated_calls.append((offset, "", -1))
+        sym.indirect_call = updated_calls
+
 
 def build_reverse_callgraph(symbols):
     for caller_key in symbols:

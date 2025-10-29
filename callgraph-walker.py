@@ -63,8 +63,15 @@ def action_show(symbols, symbol_names):
             print(f"  callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
             vals = [s[0] for s in sorted(sym.all_callees)]
             print(f"  all callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-            vals = [f'0x{o:x}' for o in sym.indirect_call]
-            print(f"  indirect calls ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+            if sym.indirect_call:
+                print(f"  indirect calls ({len(sym.indirect_call)}):")
+                for offset, src_file, src_line in sym.indirect_call:
+                    if src_file:
+                        print(f"    0x{offset:x} -> {src_file}:{src_line}")
+                    else:
+                        print(f"    0x{offset:x}")
+            else:
+                print(f"  indirect calls: (none)")
             print(f"  flags: ", end="")
             flags = []
             if sym.sym_type not in ['t', 'T', 'w', 'W']:
@@ -106,6 +113,7 @@ def main():
     cycles = collector.detect_recursion(symbols)
     collector.add_nm_info(symbols, elf_file)
     has_su = collector.add_su_info(symbols, searchpath_su)
+    collector.add_addr2line_info(symbols, elf_file)
 
     if action == 'list_cycles':
         action_list_cycles(cycles)
