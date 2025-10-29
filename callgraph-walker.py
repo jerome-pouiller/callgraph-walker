@@ -29,8 +29,9 @@ class Symbol:
         self.sym_type = ""
         self.src_file = ""
         self.src_line = -1
-        self.callees: Set[str] = set()
         self.callers: Set[str] = set()
+        self.callees: Set[str] = set()
+        self.all_callees: Set[str] = set()
         self.cycles: Set[int] = set()
         self.sym_name_mismatch = False
         self.indirect_call = False
@@ -138,13 +139,16 @@ def detect_recursion(symbols):
             for func in callstack[cycle_start:]:
                 symbols[func].cycles.add(len(cycles))
             cycles.append(callstack[cycle_start:].copy())
-            return
+            return set()
         if name in visited:
-            return
+            return symbols[name].all_callees
         visited.add(name)
         callstack.append(name)
+        symbols[name].all_callees = set()
         for callee in symbols[name].callees:
-            dfs(callee, callstack.copy())
+            symbols[name].all_callees.add(callee)
+            symbols[name].all_callees.update(dfs(callee, callstack.copy()))
+        return symbols[name].all_callees
 
     for name in symbols:
         if name not in visited:
@@ -166,7 +170,7 @@ def main():
 
     print("Call Graph:")
     for fn in sorted(symbols.keys()):
-        print(f"  {fn} -> {', '.join(sorted(symbols[fn].callees))}")
+        print(f"  {fn} -> {', '.join(sorted(symbols[fn].all_callees))}")
 
 if __name__ == "__main__":
     main()
