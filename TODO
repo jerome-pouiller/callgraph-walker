@@ -1,0 +1,17 @@
+ - Rerieve symbols _image_ram_start, _image_ram_end and __rom_region_start,
+   __rom_region_end.
+     - Verify where the symbols are located.
+     - List functions located in RAM
+     - List function located in RAM that depends on function in Flash
+ - In callee, all_callee, add a mark if the function use a callback
+ - Compute the worst stack depth
+     - Identify recursve calls
+     - Identify unbounded stack size
+     - identify the indirect calls
+ - Find a way for the users to inform the tool about the real functions behind
+   the callbacks
+ - Add a mode to generate the Cmakelist fragment to place function and its
+   dependencyes in RAM
+ - Track access to .ro_data, .data and .bss
+     - .data may have pointer to .rodata, so flash acesses can be masked
+ - Add support for x86_64, x86 and other architectures
