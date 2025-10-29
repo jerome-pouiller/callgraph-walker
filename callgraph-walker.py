@@ -19,109 +19,61 @@ def action_list_cycles(cycles):
         print(f"{k} -> {', '.join(v)}")
 
 def action_health(symbols, has_su):
-    """List symbols with errors or missing information."""
-    syms = []
-    for name in sorted(symbols):
-        if symbols[name].sym_not_found:
-            syms.append(name)
-    if syms:
-        print(f"Symbol not found:")
-        print(f"  {', '.join(syms)}")
-        print()
 
-    syms = []
-    for name in sorted(symbols):
-        if symbols[name].sym_name_mismatch:
-            syms.append(name)
-    if syms:
-        print(f"Symbol name mismatch:")
-        print(f"  {', '.join(syms)}")
-        print()
-
-    syms = []
-    for name in sorted(symbols):
-        if symbols[name].size < 0:
-            syms.append(name)
-    if syms:
-        print(f"Size unknown:")
-        print(f"  {', '.join(syms)}")
-        print()
-
-    if not has_su:
-        print(f"No stack usage data found.")
-    else:
-        syms = []
-        for name in sorted(symbols):
-            if symbols[name].su_not_found:
-                syms.append(name)
+    def print_issue(title, predicate, formatter=None):
+        syms = list(filter(lambda name: predicate(symbols[name]), sorted(symbols)))
         if syms:
-            print(f"Stack usage not found:")
+            if formatter:
+                syms = list(map(formatter, syms))
+            print(f"{title}:")
             print(f"  {', '.join(syms)}")
             print()
 
-    syms = []
-    for name in sorted(symbols):
-        if not symbols[name].src_file:
-            syms.append(name)
-    if syms:
-        print(f"Source not found:")
-        print(f"  {', '.join(syms)}")
-        print()
+    print_issue("Symbol not found", lambda s: s.sym_not_found)
+    print_issue("Symbol name mismatch", lambda s: s.sym_name_mismatch)
+    print_issue("Size unknown", lambda s: s.size < 0)
 
-    syms = []
-    for name in sorted(symbols):
-        if symbols[name].sym_type not in ['t', 'T', 'w', 'W']:
-            syms.append(f"{name} ({symbols[name].sym_type})")
-    if syms:
-        print(f"Type incorrect:")
-        print(f"  {', '.join(syms)}")
+    if not has_su:
+        print(f"No stack usage data found.")
         print()
+    else:
+        print_issue("Stack usage not found", lambda s: s.su_not_found)
 
-    syms = []
-    for name in sorted(symbols):
-        if symbols[name].indirect_call:
-            syms.append(name)
-    if syms:
-        print(f"Has indriect calls:")
-        print(f"  {', '.join(syms)}")
-        print()
-
-    syms = []
-    for name in sorted(symbols):
-        if symbols[name].cycles:
-            syms.append(name)
-    if syms:
-        print(f"Part of a cycle:")
-        print(f"  {', '.join(syms)}")
-        print()
-
-def show(sym):
-        print(f"Symbol: {sym.name}")
-        print(f"  offset: 0x{sym.offset:x}")
-        print(f"  size: {sym.size}")
-        print(f"  frame size: {sym.frame_size}")
-        print(f"  frame qualifiers: {sym.frame_qualifiers}")
-        print(f"  symbol type: {sym.sym_type}")
-        print(f"  source: {sym.src_file}:{sym.src_line}" if sym.src_file else "  source: (none)")
-        print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
-        print(f"  callers ({len(sym.callers)}): {', '.join(sorted(sym.callers)) if sym.callers else '(none)'}")
-        print(f"  callees ({len(sym.callees)}): {', '.join(sorted(sym.callees)) if sym.callees else '(none)'}")
-        print(f"  all callees ({len(sym.all_callees)}): {', '.join(sorted(sym.all_callees)) if sym.all_callees else '(none)'}")
-        print(f"  indirect call: {sym.indirect_call}")
-        print(f"  flags: ", end="")
-        flags = []
-        if sym.sym_name_mismatch:
-            flags.append("name_mismatch")
-        if sym.sym_type not in ['t', 'T', 'w', 'W']:
-            flags.append("type_mismatch")
-        if sym.sym_not_found:
-            flags.append("not_found")
-        if not sym.src_file:
-            flags.append("no_src")
-        print(", ".join(flags) if flags else "(none)")
-        print()
+    print_issue("Source not found", lambda s: not s.src_file)
+    print_issue("Type incorrect",
+                lambda s: s.sym_type not in ['t', 'T', 'w', 'W'],
+                lambda name: f"{name} ({symbols[name].sym_type})")
+    print_issue("Has indirect calls", lambda s: s.indirect_call)
+    print_issue("Part of a cycle", lambda s: s.cycles)
 
 def action_show(symbols, symbol_names):
+
+    def show(sym):
+            print(f"Symbol: {sym.name}")
+            print(f"  offset: 0x{sym.offset:x}")
+            print(f"  size: {sym.size}")
+            print(f"  frame size: {sym.frame_size}")
+            print(f"  frame qualifiers: {sym.frame_qualifiers}")
+            print(f"  symbol type: {sym.sym_type}")
+            print(f"  source: {sym.src_file}:{sym.src_line}" if sym.src_file else "  source: (none)")
+            print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
+            print(f"  callers ({len(sym.callers)}): {', '.join(sorted(sym.callers)) if sym.callers else '(none)'}")
+            print(f"  callees ({len(sym.callees)}): {', '.join(sorted(sym.callees)) if sym.callees else '(none)'}")
+            print(f"  all callees ({len(sym.all_callees)}): {', '.join(sorted(sym.all_callees)) if sym.all_callees else '(none)'}")
+            print(f"  indirect call: {sym.indirect_call}")
+            print(f"  flags: ", end="")
+            flags = []
+            if sym.sym_name_mismatch:
+                flags.append("name_mismatch")
+            if sym.sym_type not in ['t', 'T', 'w', 'W']:
+                flags.append("type_mismatch")
+            if sym.sym_not_found:
+                flags.append("not_found")
+            if not sym.src_file:
+                flags.append("no_src")
+            print(", ".join(flags) if flags else "(none)")
+            print()
+
     for sym in symbol_names:
         if sym not in symbols:
             print(f"Symbol not found: {sym}")
