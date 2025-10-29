@@ -18,7 +18,7 @@ from typing import Dict, Set
 cmd_objdump = "objdump"
 cmd_nm = "nm"
 pattern_fn = re.compile(r'^([0-9a-f]+) <(.+)>:')
-pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+[0-9a-f]+\s+<(.+)>')
+pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+([0-9a-f]+)\s+<(.+)>')
 pattern_fn_ptr = re.compile(r'^\s+([0-9a-f]+):\s+.+\s+bl[x]?\s+(r\d+)')
 
 class Symbol:
@@ -31,11 +31,10 @@ class Symbol:
         self.sym_type = ""
         self.src_file = ""
         self.src_line = -1
-        self.callers: Set[str] = set()
-        self.callees: Set[str] = set()
-        self.all_callees: Set[str] = set()
+        self.callers: Set[tuple] = set()
+        self.callees: Set[tuple] = set()
+        self.all_callees: Set[tuple] = set()
         self.cycles: Set[int] = set()
-        self.sym_name_mismatch = False
         self.sym_not_found = True
         self.su_not_found = True
         self.indirect_call: list = []
@@ -49,17 +48,21 @@ def parse_objdump(elf_file):
         sys.exit(f"Error running {cmd_objdump}")
 
     symbols = {}
-    cur_fn = ""
+    cur_fn = None
     for line in output.split('\n'):
         m = pattern_fn.match(line)
         if m:
-            cur_fn = m.group(2)
-            symbols[cur_fn] = Symbol(cur_fn, int(m.group(1), 16))
+            name = m.group(2)
+            offset = int(m.group(1), 16)
+            cur_fn = (name, offset)
+            symbols[cur_fn] = Symbol(name, offset)
         m = pattern_call.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            symbols[cur_fn].callees.add(m.group(1))
+            callee_offset = int(m.group(1), 16)
+            callee_name = m.group(2)
+            symbols[cur_fn].callees.add((callee_name, callee_offset))
         m = pattern_fn_ptr.match(line)
         if m:
             if not cur_fn:
@@ -106,26 +109,23 @@ def parse_nm(elf_file):
         else:
             src_file = ""
             src_line = -1
-        # FIXME: multiple symbols can be decared on same offset
         # FIXME: detect case where binary has not been built with -g and no
         #        source files are available
-        nm_data[offset] = (name, size, sym_type, src_file, src_line)
+        nm_data[(name, offset)] = (size, sym_type, src_file, src_line)
 
     return nm_data
 
 
 def add_nm_info(symbols, elf_file):
     nm_data = parse_nm(elf_file)
-    for name, sym in symbols.items():
-        if not sym.offset in nm_data:
+    for key, sym in symbols.items():
+        if key not in nm_data:
             continue
-        sym.size = nm_data[sym.offset][1]
-        sym.sym_type = nm_data[sym.offset][2]
-        sym.src_file = nm_data[sym.offset][3]
-        sym.src_line = nm_data[sym.offset][4]
+        sym.size = nm_data[key][0]
+        sym.sym_type = nm_data[key][1]
+        sym.src_file = nm_data[key][2]
+        sym.src_line = nm_data[key][3]
         sym.sym_not_found = False
-        if nm_data[sym.offset][0] != name:
-            sym.sym_name_mismatch = True
 
 def parse_su(search_dir):
     su_data = {}
@@ -174,34 +174,36 @@ def add_su_info(symbols, search_dir):
     return True
 
 def build_reverse_callgraph(symbols):
-    for caller in symbols:
-        for callee in symbols[caller].callees:
-            symbols[callee].callers.add(caller)
+    for caller_key in symbols:
+        for callee_key in symbols[caller_key].callees:
+            if callee_key in symbols:
+                symbols[callee_key].callers.add(caller_key)
 
 
 def detect_recursion(symbols):
     visited = set()
-    cycles = [ ]
+    cycles = []
 
-    def dfs(name, callstack):
-        if name in callstack:
+    def dfs(key, callstack):
+        if key in callstack:
             # Found a cycle - mark all functions in the cycle with unique ID
-            cycle_start = callstack.index(name)
-            for func in callstack[cycle_start:]:
-                symbols[func].cycles.add(len(cycles))
-            cycles.append(callstack[cycle_start:].copy())
+            cycle_start = callstack.index(key)
+            for func_key in callstack[cycle_start:]:
+                symbols[func_key].cycles.add(len(cycles))
+            cycles.append([symbols[k].name for k in callstack[cycle_start:]])
             return set()
-        if name in visited:
-            return symbols[name].all_callees
-        visited.add(name)
-        callstack.append(name)
-        symbols[name].all_callees = set()
-        for callee in symbols[name].callees:
-            symbols[name].all_callees.add(callee)
-            symbols[name].all_callees.update(dfs(callee, callstack.copy()))
-        return symbols[name].all_callees
+        if key in visited:
+            return symbols[key].all_callees
+        visited.add(key)
+        callstack.append(key)
+        symbols[key].all_callees = set()
+        for callee_key in symbols[key].callees:
+            symbols[key].all_callees.add(callee_key)
+            if callee_key in symbols:
+                symbols[key].all_callees.update(dfs(callee_key, callstack.copy()))
+        return symbols[key].all_callees
 
-    for name in symbols:
-        if name not in visited:
-            dfs(name, [])
+    for key in symbols:
+        if key not in visited:
+            dfs(key, [])
     return cycles

@@ -20,17 +20,14 @@ def action_list_cycles(cycles):
 
 def action_health(symbols, has_su):
 
-    def print_issue(title, predicate, formatter=None):
-        syms = list(filter(lambda name: predicate(symbols[name]), sorted(symbols)))
+    def print_issue(title, predicate, formatter=lambda s: f"{s.name}"):
+        syms =  [formatter(symbols[key]) for key in sorted(symbols) if predicate(symbols[key])]
         if syms:
-            if formatter:
-                syms = list(map(formatter, syms))
             print(f"{title}:")
             print(f"  {', '.join(syms)}")
             print()
 
     print_issue("Symbol not found", lambda s: s.sym_not_found)
-    print_issue("Symbol name mismatch", lambda s: s.sym_name_mismatch)
     print_issue("Size unknown", lambda s: s.size < 0)
 
     if not has_su:
@@ -42,7 +39,7 @@ def action_health(symbols, has_su):
     print_issue("Source not found", lambda s: not s.src_file)
     print_issue("Type incorrect",
                 lambda s: s.sym_type not in ['t', 'T', 'w', 'W'],
-                lambda name: f"{name} ({symbols[name].sym_type})")
+                lambda s: f"{s.name} ({s.sym_type})")
     print_issue("Has indirect calls", lambda s: s.indirect_call)
     print_issue("Part of a cycle", lambda s: s.cycles)
 
@@ -55,20 +52,21 @@ def action_show(symbols, symbol_names):
             print(f"  frame size: {sym.frame_size}")
             print(f"  frame qualifiers: {sym.frame_qualifiers}")
             print(f"  symbol type: {sym.sym_type}")
-            print(f"  source: {sym.src_file}:{sym.src_line}" if sym.src_file else "  source: (none)")
-            print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
-            print(f"  callers ({len(sym.callers)}): {', '.join(sorted(sym.callers)) if sym.callers else '(none)'}")
-            print(f"  callees ({len(sym.callees)}): {', '.join(sorted(sym.callees)) if sym.callees else '(none)'}")
-            print(f"  all callees ({len(sym.all_callees)}): {', '.join(sorted(sym.all_callees)) if sym.all_callees else '(none)'}")
-            if sym.indirect_call:
-                offsets = ', '.join([f'0x{o:x}' for o in sym.indirect_call])
-                print(f"  indirect calls ({len(sym.indirect_call)}): {offsets}")
+            if sym.src_file:
+                print(f"  source: {sym.src_file}:{sym.src_line}")
             else:
-                print(f"  indirect calls: (none)")
+                print(f"  source: (none)")
+            print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
+            vals = [s[0] for s in sorted(sym.callers)]
+            print(f"  callers ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+            vals = [s[0] for s in sorted(sym.callees)]
+            print(f"  callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+            vals = [s[0] for s in sorted(sym.all_callees)]
+            print(f"  all callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+            vals = [f'0x{o:x}' for o in sym.indirect_call]
+            print(f"  indirect calls ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
             print(f"  flags: ", end="")
             flags = []
-            if sym.sym_name_mismatch:
-                flags.append("name_mismatch")
             if sym.sym_type not in ['t', 'T', 'w', 'W']:
                 flags.append("type_mismatch")
             if sym.sym_not_found:
@@ -78,11 +76,16 @@ def action_show(symbols, symbol_names):
             print(", ".join(flags) if flags else "(none)")
             print()
 
-    for sym in symbol_names:
-        if sym not in symbols:
-            print(f"Symbol not found: {sym}")
-            continue
-        show(symbols[sym])
+    for sym_name in symbol_names:
+        # Find symbol by name
+        found = False
+        for key, sym in symbols.items():
+            if sym.name == sym_name:
+                show(sym)
+                found = True
+        if not found:
+            print(f"Symbol not found: {sym_name}")
+            print()
 
 
 def main():
