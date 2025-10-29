@@ -10,24 +10,35 @@
 #
 # [1]: https://www.silabs.com/about-us/legal/master-software-license-agreement
 import sys
+import argparse
 from collector import parse_objdump, add_symbols_info, build_reverse_callgraph, detect_recursion
 
-def main():
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} ELF_FILE")
-        sys.exit(1)
+def action_list_cycles(cycles):
+    for k, v in enumerate(cycles):
+        print(f"{k} -> {', '.join(v)}")
 
-    symbols = parse_objdump(sys.argv[1])
-    add_symbols_info(symbols, sys.argv[1])
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Extract the call graph and other useful from an ELF binary',
+        usage='%(prog)s -e ELF_FILE ACTION [ARGS...]'
+    )
+    parser.add_argument('-e', '--elf', required=True, help='ELF binary file')
+    parser.add_argument('action', help='Action to perform')
+    parser.add_argument('args', nargs='*', help='Action arguments')
+    args = parser.parse_args()
+    elf_file = args.elf
+    action = args.action
+
+    symbols = parse_objdump(elf_file)
+    add_symbols_info(symbols, elf_file)
     build_reverse_callgraph(symbols)
     cycles = detect_recursion(symbols)
-    print("Cycles:")
-    for k, v in enumerate(cycles):
-        print(f"  {k} -> {', '.join(v)}")
-
-    print("Call Graph:")
-    for fn in sorted(symbols.keys()):
-        print(f"  {fn} -> {', '.join(sorted(symbols[fn].all_callees))}")
+    if action == 'list_cycles':
+        action_list_cycles(cycles)
+    else:
+        print(f"Unknown action: {action}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
