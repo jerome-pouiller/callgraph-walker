@@ -59,9 +59,22 @@ def action_show(symbols, symbol_names):
             print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
             vals = [s[0] for s in sorted(sym.callers)]
             print(f"  callers ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-            vals = [s[0] for s in sorted(sym.callees)]
+            # Add [I] marker for functions with indirect calls
+            vals = []
+            for key in sorted(sym.callees):
+                name = key[0]
+                if key in symbols and symbols[key].indirect_call:
+                    vals.append(f"{name}[I]")
+                else:
+                    vals.append(name)
             print(f"  callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-            vals = [s[0] for s in sorted(sym.all_callees)]
+            vals = []
+            for key in sorted(sym.all_callees):
+                name = key[0]
+                if key in symbols and symbols[key].indirect_call:
+                    vals.append(f"{name}[I]")
+                else:
+                    vals.append(name)
             print(f"  all callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
             if sym.indirect_call:
                 print(f"  indirect calls ({len(sym.indirect_call)}):")
