@@ -8,6 +8,7 @@
 # Code. By using this software, you agree to the terms of the MSLA.
 #
 # [1]: https://www.silabs.com/about-us/legal/master-software-license-agreement
+import os
 import re
 import sys
 import subprocess
@@ -25,6 +26,8 @@ class Symbol:
         self.name = name
         self.offset = offset
         self.size = -1
+        self.frame_size = -1
+        self.frame_qualifiers = ""
         self.sym_type = ""
         self.src_file = ""
         self.src_line = -1
@@ -34,6 +37,7 @@ class Symbol:
         self.cycles: Set[int] = set()
         self.sym_name_mismatch = False
         self.sym_not_found = True
+        self.su_not_found = True
         self.indirect_call = False
 
 
@@ -123,6 +127,51 @@ def add_nm_info(symbols, elf_file):
         if nm_data[sym.offset][0] != name:
             sym.sym_name_mismatch = True
 
+def parse_su(search_dir):
+    su_data = {}
+
+    for root, dirs, files in os.walk(search_dir):
+        for filename in files:
+            if not filename.endswith('.su'):
+                continue
+            try:
+                with open(os.path.join(root, filename), 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        # Format: file:line:col:function\tframe_size\tqualifiers
+                        parts = line.split('\t')
+                        if len(parts) < 3:
+                            continue
+                        # Parse location: file:line:col:function
+                        loc_parts = parts[0].rsplit(':', 3)
+                        if len(loc_parts) < 4:
+                            continue
+
+                        frame_size = int(parts[1])
+                        qualifiers = parts[2]
+                        src_file = loc_parts[0]
+                        src_line = int(loc_parts[1])
+                        function = loc_parts[3]
+                        key = (function, src_file, src_line)
+                        su_data[key] = (frame_size, qualifiers)
+            except (IOError, ValueError):
+                continue
+
+    return su_data
+
+
+def add_su_info(symbols, search_dir):
+    su_data = parse_su(search_dir)
+    if not su_data:
+        return False
+    for sym in symbols.values():
+        su_key = (sym.name, sym.src_file, sym.src_line)
+        if su_key in su_data:
+            sym.frame_size, sym.frame_qualifiers = su_data[su_key]
+            sym.su_not_found = False
+    return True
 
 def build_reverse_callgraph(symbols):
     for caller in symbols:
