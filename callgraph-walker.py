@@ -60,7 +60,11 @@ def action_show(symbols, symbol_names):
             print(f"  callers ({len(sym.callers)}): {', '.join(sorted(sym.callers)) if sym.callers else '(none)'}")
             print(f"  callees ({len(sym.callees)}): {', '.join(sorted(sym.callees)) if sym.callees else '(none)'}")
             print(f"  all callees ({len(sym.all_callees)}): {', '.join(sorted(sym.all_callees)) if sym.all_callees else '(none)'}")
-            print(f"  indirect call: {sym.indirect_call}")
+            if sym.indirect_call:
+                offsets = ', '.join([f'0x{o:x}' for o in sym.indirect_call])
+                print(f"  indirect calls ({len(sym.indirect_call)}): {offsets}")
+            else:
+                print(f"  indirect calls: (none)")
             print(f"  flags: ", end="")
             flags = []
             if sym.sym_name_mismatch:

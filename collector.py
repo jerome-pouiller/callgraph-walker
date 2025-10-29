@@ -19,7 +19,7 @@ cmd_objdump = "objdump"
 cmd_nm = "nm"
 pattern_fn = re.compile(r'^([0-9a-f]+) <(.+)>:')
 pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+[0-9a-f]+\s+<(.+)>')
-pattern_fn_ptr = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+(r\d+)')
+pattern_fn_ptr = re.compile(r'^\s+([0-9a-f]+):\s+.+\s+bl[x]?\s+(r\d+)')
 
 class Symbol:
     def __init__(self, name: str, offset: int = 0):
@@ -38,7 +38,7 @@ class Symbol:
         self.sym_name_mismatch = False
         self.sym_not_found = True
         self.su_not_found = True
-        self.indirect_call = False
+        self.indirect_call: list = []
 
 
 def parse_objdump(elf_file):
@@ -64,7 +64,7 @@ def parse_objdump(elf_file):
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            symbols[cur_fn].indirect_call = True
+            symbols[cur_fn].indirect_call.append(int(m.group(1), 16))
     return symbols
 
 
