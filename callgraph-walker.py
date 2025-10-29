@@ -31,6 +31,7 @@ class Symbol:
         self.src_line = -1
         self.callees: Set[str] = set()
         self.callers: Set[str] = set()
+        self.cycles: Set[int] = set()
         self.sym_name_mismatch = False
         self.indirect_call = False
 
@@ -125,6 +126,31 @@ def build_reverse_callgraph(symbols):
         for callee in symbols[caller].callees:
             symbols[callee].callers.add(caller)
 
+
+def detect_recursion(symbols):
+    visited = set()
+    cycles = [ ]
+
+    def dfs(name, callstack):
+        if name in callstack:
+            # Found a cycle - mark all functions in the cycle with unique ID
+            cycle_start = callstack.index(name)
+            for func in callstack[cycle_start:]:
+                symbols[func].cycles.add(len(cycles))
+            cycles.append(callstack[cycle_start:].copy())
+            return
+        if name in visited:
+            return
+        visited.add(name)
+        callstack.append(name)
+        for callee in symbols[name].callees:
+            dfs(callee, callstack.copy())
+
+    for name in symbols:
+        if name not in visited:
+            dfs(name, [])
+    return cycles
+
 def main():
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} ELF_FILE")
@@ -133,6 +159,10 @@ def main():
     symbols = parse_objdump(sys.argv[1])
     add_symbols_info(symbols, sys.argv[1])
     build_reverse_callgraph(symbols)
+    cycles = detect_recursion(symbols)
+    print("Cycles:")
+    for k, v in enumerate(cycles):
+        print(f"  {k} -> {', '.join(v)}")
 
     print("Call Graph:")
     for fn in sorted(symbols.keys()):
