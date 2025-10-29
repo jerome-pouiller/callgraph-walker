@@ -11,7 +11,7 @@
 # [1]: https://www.silabs.com/about-us/legal/master-software-license-agreement
 import sys
 import argparse
-from collector import parse_objdump, add_symbols_info, build_reverse_callgraph, detect_recursion
+import collector
 
 def action_list_cycles(cycles):
     for k, v in enumerate(cycles):
@@ -126,10 +126,11 @@ def main():
     elf_file = args.elf
     action = args.action
 
-    symbols = parse_objdump(elf_file)
-    add_symbols_info(symbols, elf_file)
-    build_reverse_callgraph(symbols)
-    cycles = detect_recursion(symbols)
+    symbols = collector.parse_objdump(elf_file)
+    collector.build_reverse_callgraph(symbols)
+    cycles = collector.detect_recursion(symbols)
+    collector.add_nm_info(symbols, elf_file)
+
     if action == 'list_cycles':
         action_list_cycles(cycles)
     elif action == 'health':

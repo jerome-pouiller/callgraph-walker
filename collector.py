@@ -110,7 +110,7 @@ def parse_nm(elf_file):
     return nm_data
 
 
-def add_symbols_info(symbols, elf_file):
+def add_nm_info(symbols, elf_file):
     nm_data = parse_nm(elf_file)
     for name, sym in symbols.items():
         if not sym.offset in nm_data:
