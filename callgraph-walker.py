@@ -24,6 +24,7 @@ class Symbol:
         self.name = name
         self.offset = offset
         self.callees: Set[str] = set()
+        self.callers: Set[str] = set()
 
 
 def parse_objdump(elf_file):
@@ -47,6 +48,10 @@ def parse_objdump(elf_file):
             symbols[cur_fn].callees.add(m.group(1))
     return symbols
 
+def build_reverse_callgraph(symbols):
+    for caller in symbols:
+        for callee in symbols[caller].callees:
+            symbols[callee].callers.add(caller)
 
 def main():
     if len(sys.argv) != 2:
@@ -54,6 +59,7 @@ def main():
         sys.exit(1)
 
     symbols = parse_objdump(sys.argv[1])
+    build_reverse_callgraph(symbols)
 
     print("Call Graph:")
     for fn in sorted(symbols.keys()):
