@@ -33,6 +33,7 @@ class Symbol:
         self.all_callees: Set[str] = set()
         self.cycles: Set[int] = set()
         self.sym_name_mismatch = False
+        self.sym_not_found = True
         self.indirect_call = False
 
 
@@ -101,6 +102,9 @@ def parse_nm(elf_file):
         else:
             src_file = ""
             src_line = -1
+        # FIXME: multiple symbols can be decared on same offset
+        # FIXME: detect case where binary has not been built with -g and no
+        #        source files are available
         nm_data[offset] = (name, size, sym_type, src_file, src_line)
 
     return nm_data
@@ -110,15 +114,14 @@ def add_symbols_info(symbols, elf_file):
     nm_data = parse_nm(elf_file)
     for name, sym in symbols.items():
         if not sym.offset in nm_data:
-            # Weird ...
-            sym.sym_name_mismatch = True
             continue
-        if nm_data[sym.offset][0] != name:
-            sym.sym_name_mismatch = True
         sym.size = nm_data[sym.offset][1]
         sym.sym_type = nm_data[sym.offset][2]
         sym.src_file = nm_data[sym.offset][3]
         sym.src_line = nm_data[sym.offset][4]
+        sym.sym_not_found = False
+        if nm_data[sym.offset][0] != name:
+            sym.sym_name_mismatch = True
 
 
 def build_reverse_callgraph(symbols):
