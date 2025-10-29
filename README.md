@@ -53,4 +53,4 @@ use install `binutils-multiarch`.
 Usage
 -----
 
-    ./callgraph-walker.py zephyr/build/zephyr/zephyr.elf
+    ./callgraph-walker.py -e zephyr/build/zephyr/zephyr.elf show main
