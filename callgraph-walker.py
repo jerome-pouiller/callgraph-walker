@@ -9,6 +9,7 @@
 # Code. By using this software, you agree to the terms of the MSLA.
 #
 # [1]: https://www.silabs.com/about-us/legal/master-software-license-agreement
+import os
 import sys
 import argparse
 import collector
@@ -17,7 +18,7 @@ def action_list_cycles(cycles):
     for k, v in enumerate(cycles):
         print(f"{k} -> {', '.join(v)}")
 
-def action_health(symbols):
+def action_health(symbols, has_su):
     """List symbols with errors or missing information."""
     syms = []
     for name in sorted(symbols):
@@ -45,6 +46,18 @@ def action_health(symbols):
         print(f"Size unknown:")
         print(f"  {', '.join(syms)}")
         print()
+
+    if not has_su:
+        print(f"No stack usage data found.")
+    else:
+        syms = []
+        for name in sorted(symbols):
+            if symbols[name].su_not_found:
+                syms.append(name)
+        if syms:
+            print(f"Stack usage not found:")
+            print(f"  {', '.join(syms)}")
+            print()
 
     syms = []
     for name in sorted(symbols):
@@ -86,7 +99,9 @@ def show(sym):
         print(f"Symbol: {sym.name}")
         print(f"  offset: 0x{sym.offset:x}")
         print(f"  size: {sym.size}")
-        print(f"  type: {sym.sym_type}")
+        print(f"  frame size: {sym.frame_size}")
+        print(f"  frame qualifiers: {sym.frame_qualifiers}")
+        print(f"  symbol type: {sym.sym_type}")
         print(f"  source: {sym.src_file}:{sym.src_line}" if sym.src_file else "  source: (none)")
         print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
         print(f"  callers ({len(sym.callers)}): {', '.join(sorted(sym.callers)) if sym.callers else '(none)'}")
@@ -125,16 +140,18 @@ def main():
     args = parser.parse_args()
     elf_file = args.elf
     action = args.action
+    searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 
     symbols = collector.parse_objdump(elf_file)
     collector.build_reverse_callgraph(symbols)
     cycles = collector.detect_recursion(symbols)
     collector.add_nm_info(symbols, elf_file)
+    has_su = collector.add_su_info(symbols, searchpath_su)
 
     if action == 'list_cycles':
         action_list_cycles(cycles)
     elif action == 'health':
-        action_health(symbols)
+        action_health(symbols, has_su)
     elif action == 'show':
         if not args.args:
             print("Error: 'show' action requires at least one symbol name")
