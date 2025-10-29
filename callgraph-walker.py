@@ -46,55 +46,55 @@ def action_health(symbols, has_su):
 def action_show(symbols, symbol_names):
 
     def show(sym):
-            print(f"Symbol: {sym.name}")
-            print(f"  offset: 0x{sym.offset:x}")
-            print(f"  size: {sym.size}")
-            print(f"  frame size: {sym.frame_size}")
-            print(f"  frame qualifiers: {sym.frame_qualifiers}")
-            print(f"  symbol type: {sym.sym_type}")
-            if sym.src_file:
-                print(f"  source: {sym.src_file}:{sym.src_line}")
+        print(f"Symbol: {sym.name}")
+        print(f"  offset: 0x{sym.offset:x}")
+        print(f"  size: {sym.size}")
+        print(f"  frame size: {sym.frame_size}")
+        print(f"  frame qualifiers: {sym.frame_qualifiers}")
+        print(f"  symbol type: {sym.sym_type}")
+        if sym.src_file:
+            print(f"  source: {sym.src_file}:{sym.src_line}")
+        else:
+            print(f"  source: (none)")
+        print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
+        vals = [s[0] for s in sorted(sym.callers)]
+        print(f"  callers ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+        # Add [I] marker for functions with indirect calls
+        vals = []
+        for key in sorted(sym.callees):
+            name = key[0]
+            if key in symbols and symbols[key].indirect_call:
+                vals.append(f"{name}[I]")
             else:
-                print(f"  source: (none)")
-            print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
-            vals = [s[0] for s in sorted(sym.callers)]
-            print(f"  callers ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-            # Add [I] marker for functions with indirect calls
-            vals = []
-            for key in sorted(sym.callees):
-                name = key[0]
-                if key in symbols and symbols[key].indirect_call:
-                    vals.append(f"{name}[I]")
-                else:
-                    vals.append(name)
-            print(f"  callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-            vals = []
-            for key in sorted(sym.all_callees):
-                name = key[0]
-                if key in symbols and symbols[key].indirect_call:
-                    vals.append(f"{name}[I]")
-                else:
-                    vals.append(name)
-            print(f"  all callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-            if sym.indirect_call:
-                print(f"  indirect calls ({len(sym.indirect_call)}):")
-                for offset, src_file, src_line in sym.indirect_call:
-                    if src_file:
-                        print(f"    0x{offset:x} -> {src_file}:{src_line}")
-                    else:
-                        print(f"    0x{offset:x}")
+                vals.append(name)
+        print(f"  callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+        vals = []
+        for key in sorted(sym.all_callees):
+            name = key[0]
+            if key in symbols and symbols[key].indirect_call:
+                vals.append(f"{name}[I]")
             else:
-                print(f"  indirect calls: (none)")
-            print(f"  flags: ", end="")
-            flags = []
-            if sym.sym_type not in ['t', 'T', 'w', 'W']:
-                flags.append("type_mismatch")
-            if sym.sym_not_found:
-                flags.append("not_found")
-            if not sym.src_file:
-                flags.append("no_src")
-            print(", ".join(flags) if flags else "(none)")
-            print()
+                vals.append(name)
+        print(f"  all callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+        if sym.indirect_call:
+            print(f"  indirect calls ({len(sym.indirect_call)}):")
+            for offset, src_file, src_line in sym.indirect_call:
+                if src_file:
+                    print(f"    0x{offset:x} -> {src_file}:{src_line}")
+                else:
+                    print(f"    0x{offset:x}")
+        else:
+            print(f"  indirect calls: (none)")
+        print(f"  flags: ", end="")
+        flags = []
+        if sym.sym_type not in ['t', 'T', 'w', 'W']:
+            flags.append("type_mismatch")
+        if sym.sym_not_found:
+            flags.append("not_found")
+        if not sym.src_file:
+            flags.append("no_src")
+        print(", ".join(flags) if flags else "(none)")
+        print()
 
     for sym_name in symbol_names:
         # Find symbol by name
