@@ -53,4 +53,19 @@ use `binutils-multiarch`.
 Usage
 -----
 
+You can first list all the known symbols:
+
+    ./callgraph-walker.py -e zephyr/build/zephyr/zephyr.elf list
+
+Since this list is huge, you may want to filter it:
+
+    ./callgraph-walker.py -e zephyr/build/zephyr/zephyr.elf list z_*
+
+Then, you can get detailed information about a specific symbol:
+
     ./callgraph-walker.py -e zephyr/build/zephyr/zephyr.elf show main
+
+By default, full paths are displayed. You may want to strip common prefix with
+`-p`:
+
+    ./callgraph-walker.py -e zephyr/build/zephyr/zephyr.elf -p /home/user/zephyr show main
