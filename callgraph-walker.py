@@ -58,16 +58,16 @@ def action_show(symbols, symbol_names):
 
     def show(sym):
         print(f"Symbol: {sym.name}")
-        print(f"  offset: 0x{sym.offset:x}")
-        print(f"  size: {sym.size}")
-        print(f"  frame size: {sym.frame_size}")
-        print(f"  frame qualifiers: {sym.frame_qualifiers}")
-        print(f"  symbol type: {sym.sym_type}")
+        print(f"    offset: 0x{sym.offset:x}")
+        print(f"    size: {sym.size}")
+        print(f"    frame size: {sym.frame_size}")
+        print(f"    frame qualifiers: {sym.frame_qualifiers}")
+        print(f"    symbol type: {sym.sym_type}")
         if sym.src_file:
-            print(f"  source: {re.sub(prefix_strip, '', sym.src_file)}:{sym.src_line}")
+            print(f"    source: {re.sub(prefix_strip, '', sym.src_file)}:{sym.src_line}")
         else:
-            print(f"  source: (none)")
-        print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
+            print(f"    source: (none)")
+        print(f"    cycles: {sym.cycles if sym.cycles else '(none)'}")
 
         vals = { }
         for key in sym.callers:
@@ -79,11 +79,11 @@ def action_show(symbols, symbol_names):
             else:
                 vals[src_file].append(f"{key[0]}")
         if not vals:
-            print(f"  callers (0): (none)")
+            print(f"    callers (0): (none)")
         else:
-            print(f"  callers ({len(sym.callers)}):")
+            print(f"    callers ({len(sym.callers)}):")
             for key in sorted(vals):
-                print(f"    {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                print(f"        - {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
 
 
         vals = { }
@@ -96,11 +96,11 @@ def action_show(symbols, symbol_names):
             else:
                 vals[src_file].append(f"{key[0]}")
         if not vals:
-            print(f"  callees (0): (none)")
+            print(f"    callees (0): (none)")
         else:
-            print(f"  callees ({len(sym.callees)}):")
+            print(f"    callees ({len(sym.callees)}):")
             for key in sorted(vals):
-                print(f"    {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                print(f"        - {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
 
         vals = { }
         for key in sym.all_callees:
@@ -112,22 +112,22 @@ def action_show(symbols, symbol_names):
             else:
                 vals[src_file].append(f"{key[0]}")
         if not vals:
-            print(f"  all callees (0): (none)")
+            print(f"    all callees (0): (none)")
         else:
-            print(f"  all callees ({len(sym.all_callees)}):")
+            print(f"    all callees ({len(sym.all_callees)}):")
             for key in sorted(vals):
-                print(f"    {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                print(f"        - {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
 
         if sym.indirect_call:
-            print(f"  indirect calls ({len(sym.indirect_call)}):")
+            print(f"    indirect calls ({len(sym.indirect_call)}):")
             for offset, src_file, src_line in sym.indirect_call:
                 if src_file:
-                    print(f"    0x{offset:x} -> {re.sub(prefix_strip, '', src_file)}:{src_line}")
+                    print(f"        - 0x{offset:x} -> {re.sub(prefix_strip, '', src_file)}:{src_line}")
                 else:
-                    print(f"    0x{offset:x}")
+                    print(f"        - 0x{offset:x}")
         else:
-            print(f"  indirect calls: (none)")
-        print(f"  flags: ", end="")
+            print(f"    indirect calls: (none)")
+        print(f"    flags: ", end="")
         flags = []
         if sym.sym_type not in ['t', 'T', 'w', 'W']:
             flags.append("type_mismatch")
