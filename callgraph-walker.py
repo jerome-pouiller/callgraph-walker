@@ -12,6 +12,7 @@
 import os
 import re
 import sys
+import fnmatch
 import argparse
 import collector
 
@@ -20,6 +21,13 @@ prefix_strip = ""
 def action_list_cycles(cycles):
     for k, v in enumerate(cycles):
         print(f"{k} -> {', '.join(v)}")
+
+def action_list(symbols, glob):
+    for key in sorted(symbols):
+        if not glob:
+            print(key[0])
+        elif fnmatch.fnmatchcase(key[0], glob):
+            print(key[0])
 
 def action_health(symbols, has_su):
 
@@ -170,6 +178,8 @@ def main():
         action_list_cycles(cycles)
     elif action == 'health':
         action_health(symbols, has_su)
+    elif action == 'list':
+        action_list(symbols, args.args[0] if args.args else "")
     elif action == 'show':
         if not args.args:
             print("Error: 'show' action requires at least one symbol name")
