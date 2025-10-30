@@ -44,8 +44,8 @@ setup.
 Installation
 ------------
 
-You need a version of objdump able to parse foreign assembly. On Debian, you ca
-use install `binutils-multiarch`.
+You need a version of objdump able to parse foreign assembly. On Debian, you can
+use `binutils-multiarch`.
 
     apt-get install python3 binutils-multiarch
 
