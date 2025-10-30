@@ -10,9 +10,12 @@
 #
 # [1]: https://www.silabs.com/about-us/legal/master-software-license-agreement
 import os
+import re
 import sys
 import argparse
 import collector
+
+prefix_strip = ""
 
 def action_list_cycles(cycles):
     for k, v in enumerate(cycles):
@@ -53,7 +56,7 @@ def action_show(symbols, symbol_names):
         print(f"  frame qualifiers: {sym.frame_qualifiers}")
         print(f"  symbol type: {sym.sym_type}")
         if sym.src_file:
-            print(f"  source: {sym.src_file}:{sym.src_line}")
+            print(f"  source: {re.sub(prefix_strip, '', sym.src_file)}:{sym.src_line}")
         else:
             print(f"  source: (none)")
         print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
@@ -72,7 +75,7 @@ def action_show(symbols, symbol_names):
         else:
             print(f"  callers ({len(sym.callers)}):")
             for key in sorted(vals):
-                print(f"    {key if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                print(f"    {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
 
 
         vals = { }
@@ -89,7 +92,7 @@ def action_show(symbols, symbol_names):
         else:
             print(f"  callees ({len(sym.callees)}):")
             for key in sorted(vals):
-                print(f"    {key if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                print(f"    {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
 
         vals = { }
         for key in sym.all_callees:
@@ -105,13 +108,13 @@ def action_show(symbols, symbol_names):
         else:
             print(f"  all callees ({len(sym.all_callees)}):")
             for key in sorted(vals):
-                print(f"    {key if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                print(f"    {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
 
         if sym.indirect_call:
             print(f"  indirect calls ({len(sym.indirect_call)}):")
             for offset, src_file, src_line in sym.indirect_call:
                 if src_file:
-                    print(f"    0x{offset:x} -> {src_file}:{src_line}")
+                    print(f"    0x{offset:x} -> {re.sub(prefix_strip, '', src_file)}:{src_line}")
                 else:
                     print(f"    0x{offset:x}")
         else:
@@ -140,16 +143,20 @@ def action_show(symbols, symbol_names):
 
 
 def main():
+    global prefix_strip
+
     parser = argparse.ArgumentParser(
         description='Extract the call graph and other useful from an ELF binary',
         usage='%(prog)s -e ELF_FILE ACTION [ARGS...]'
     )
     parser.add_argument('-e', '--elf', required=True, help='ELF binary file')
+    parser.add_argument('-p', '--prefix', help='Prefix to strip when display file paths')
     parser.add_argument('action', help='Action to perform')
     parser.add_argument('args', nargs='*', help='Action arguments')
     args = parser.parse_args()
     elf_file = args.elf
     action = args.action
+    prefix_strip = f'^{args.prefix}'
     searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 
     symbols = collector.parse_objdump(elf_file)
