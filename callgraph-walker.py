@@ -57,25 +57,56 @@ def action_show(symbols, symbol_names):
         else:
             print(f"  source: (none)")
         print(f"  cycles: {sym.cycles if sym.cycles else '(none)'}")
-        vals = [s[0] for s in sorted(sym.callers)]
-        print(f"  callers ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-        # Add [I] marker for functions with indirect calls
-        vals = []
-        for key in sorted(sym.callees):
-            name = key[0]
-            if key in symbols and symbols[key].indirect_call:
-                vals.append(f"{name}[I]")
+
+        vals = { }
+        for key in sym.callers:
+            src_file = symbols[key].src_file
+            if not src_file in vals:
+                vals[src_file] = []
+            if symbols[key].indirect_call:
+                vals[src_file].append(f"{key[0]}[I]")
             else:
-                vals.append(name)
-        print(f"  callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
-        vals = []
-        for key in sorted(sym.all_callees):
-            name = key[0]
-            if key in symbols and symbols[key].indirect_call:
-                vals.append(f"{name}[I]")
+                vals[src_file].append(f"{key[0]}")
+        if not vals:
+            print(f"  callers (0): (none)")
+        else:
+            print(f"  callers ({len(sym.callers)}):")
+            for key in sorted(vals):
+                print(f"    {key if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+
+
+        vals = { }
+        for key in sym.callees:
+            src_file = symbols[key].src_file
+            if not src_file in vals:
+                vals[src_file] = []
+            if symbols[key].indirect_call:
+                vals[src_file].append(f"{key[0]}[I]")
             else:
-                vals.append(name)
-        print(f"  all callees ({len(vals)}): {', '.join(vals) if vals else '(none)'}")
+                vals[src_file].append(f"{key[0]}")
+        if not vals:
+            print(f"  callees (0): (none)")
+        else:
+            print(f"  callees ({len(sym.callees)}):")
+            for key in sorted(vals):
+                print(f"    {key if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+
+        vals = { }
+        for key in sym.all_callees:
+            src_file = symbols[key].src_file
+            if not src_file in vals:
+                vals[src_file] = []
+            if symbols[key].indirect_call:
+                vals[src_file].append(f"{key[0]}[I]")
+            else:
+                vals[src_file].append(f"{key[0]}")
+        if not vals:
+            print(f"  all callees (0): (none)")
+        else:
+            print(f"  all callees ({len(sym.all_callees)}):")
+            for key in sorted(vals):
+                print(f"    {key if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+
         if sym.indirect_call:
             print(f"  indirect calls ({len(sym.indirect_call)}):")
             for offset, src_file, src_line in sym.indirect_call:
