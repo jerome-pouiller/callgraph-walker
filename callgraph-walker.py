@@ -180,8 +180,8 @@ Available actions:
     )
     parser.add_argument('-e', '--elf', required=True,
                         help='ELF binary file')
-    parser.add_argument('-p', '--prefix', default="",
-                        help='Prefix to strip when display file paths')
+    parser.add_argument('-p', '--prefix', action='append', default=[],
+                        help='Prefix to strip when display file paths (can be specified multiple times)')
     parser.add_argument('-c', '--cross', default="",
                         help='Cross-compilation prefix (e.g., arm-none-eabi-)')
     parser.add_argument('action', help='Action to perform')
@@ -192,7 +192,7 @@ Available actions:
     cmd_objdump = f"{args.cross}objdump"
     cmd_nm = f"{args.cross}nm"
     cmd_addr2line = f"{args.cross}addr2line"
-    collector.Src.prefix_strip = f'^{args.prefix}'
+    collector.Src.prefix_strip = args.prefix
 
     searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 

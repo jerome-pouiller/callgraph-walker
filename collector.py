@@ -39,7 +39,7 @@ arch_configs = {
 }
 
 class Src:
-    prefix_strip = ""
+    prefix_strip = []
 
     def __init__(self, addr: int = 0, file: str = "", line: int = -1):
         if isinstance(addr, str):
@@ -55,7 +55,9 @@ class Src:
     def __str__(self):
         if not self.file:
             return "<unknown>"
-        file_stripped = re.sub(self.prefix_strip, '', self.file)
+        file_stripped = self.file
+        for prefix in self.prefix_strip:
+            file_stripped = re.sub(f'^{prefix}', '', file_stripped)
         if self.line < 0:
             return f"{file_stripped}"
         return f"{file_stripped}:{self.line}"
