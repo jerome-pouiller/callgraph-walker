@@ -139,7 +139,8 @@ Available actions:
 
     searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 
-    symbols = collector.parse_objdump(elf_file)
+    arch_config = collector.detect_arch(elf_file)
+    symbols = collector.parse_objdump(elf_file, arch_config)
     collector.build_reverse_callgraph(symbols)
     cycles = collector.detect_recursion(symbols)
     collector.add_nm_info(symbols, elf_file)

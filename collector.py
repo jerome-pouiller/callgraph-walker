@@ -18,9 +18,30 @@ from typing import Dict, Set
 cmd_objdump = "objdump"
 cmd_nm = "nm"
 cmd_addr2line = "addr2line"
-pattern_fn = re.compile(r'^([0-9a-f]+) <(.+)>:')
-pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+([0-9a-f]+)\s+<(.+)>')
-pattern_fn_ptr = re.compile(r'^\s+([0-9a-f]+):\s+.+\s+bl[x]?\s+(r\d+)')
+
+class ArchConfig:
+    def __init__(self, pattern_fn: str, pattern_call: str, pattern_fn_ptr: str):
+        self.pattern_fn = re.compile(pattern_fn)
+        self.pattern_call = re.compile(pattern_call)
+        self.pattern_fn_ptr = re.compile(pattern_fn_ptr)
+
+arch_configs = {
+    'arm': ArchConfig(
+        pattern_fn=r'^([0-9a-f]+) <(.+)>:',
+        pattern_call=r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+([0-9a-f]+)\s+<(.+)>',
+        pattern_fn_ptr=r'^\s+([0-9a-f]+):\s+.+\s+bl[x]?\s+(r\d+)'
+    ),
+    'x86': ArchConfig(
+        pattern_fn=r'^([0-9a-f]+) <(.+)>:',
+        pattern_call=r'^\s+[0-9a-f]+:\s+.+\s+call\s+([0-9a-f]+)\s+<(.+)>',
+        pattern_fn_ptr=r'^\s+([0-9a-f]+):\s+.+\s+call\s+\*%(\w+)'
+    ),
+    'x86-64': ArchConfig(
+        pattern_fn=r'^([0-9a-f]+) <(.+)>:',
+        pattern_call=r'^\s+[0-9a-f]+:\s+.+\s+call\s+([0-9a-f]+)\s+<(.+)>',
+        pattern_fn_ptr=r'^\s+([0-9a-f]+):\s+.+\s+call\s+\*%(\w+)'
+    ),
+}
 
 class Src:
     prefix_strip = ""
@@ -84,7 +105,25 @@ class Symbol:
         return self.name
 
 
-def parse_objdump(elf_file):
+def detect_arch(elf_file):
+    """Detect architecture from ELF file using 'file' command"""
+    try:
+        output = subprocess.check_output(['file', elf_file],
+                                         universal_newlines=True)
+    except subprocess.CalledProcessError:
+        sys.exit(f"Error running file command on {elf_file}")
+
+    if 'ARM' in output:
+        return arch_configs['arm']
+    elif 'x86-64' in output:
+        return arch_configs['x86-64']
+    elif 'i386' in output:
+        return arch_configs['i386']
+    else:
+        sys.exit(f"Unsupported architecture in {elf_file}: {output}")
+
+
+def parse_objdump(elf_file, arch_config):
     try:
         output = subprocess.check_output([cmd_objdump, '-d', elf_file],
                                          universal_newlines=True)
@@ -94,16 +133,16 @@ def parse_objdump(elf_file):
     symbols = {}
     cur_fn = None
     for line in output.split('\n'):
-        m = pattern_fn.match(line)
+        m = arch_config.pattern_fn.match(line)
         if m:
             cur_fn = SymId(m.group(2), m.group(1))
             symbols[cur_fn] = Symbol(m.group(2), m.group(1))
-        m = pattern_call.match(line)
+        m = arch_config.pattern_call.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
             symbols[cur_fn].callees.add(SymId(m.group(2), m.group(1)))
-        m = pattern_fn_ptr.match(line)
+        m = arch_config.pattern_fn_ptr.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
