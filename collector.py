@@ -343,6 +343,9 @@ def simplify_veneer_funcs(symbols):
             raise Exception(f"Cannot fix veneer symbol {key.name}: {len(matches)} symbols found")
         veneer_mapping[key] = matches[0]
 
+    for key in veneer_mapping:
+        del symbols[key]
+
     for sym in symbols.values():
         new_callees = set()
         for key in sym.callees:
