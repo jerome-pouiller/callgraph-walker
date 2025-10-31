@@ -79,6 +79,9 @@ class SymId:
         return hash((self.name, self.addr))
 
 class Symbol:
+    ram_range = None  # Tuple (start, end) or None
+    flash_range = None  # Tuple (start, end) or None
+
     def __init__(self, name: str, addr):
         self.name = name
         self.src = Src(addr=addr)
@@ -95,9 +98,15 @@ class Symbol:
         self.indirect_call: list = []
 
     def __str__(self):
+        suffix = ""
         if self.indirect_call:
-            return f"{self.name}[I]"
-        return self.name
+            suffix += "[I]"
+        if Symbol.ram_range and Symbol.flash_range:
+            if Symbol.ram_range[0] <= self.src.addr <= Symbol.ram_range[1]:
+                suffix += "[R]"
+            elif not (Symbol.flash_range[0] <= self.src.addr <= Symbol.flash_range[1]):
+                suffix += "[U]"
+        return f"{self.name}{suffix}"
 
 
 def detect_arch(elf_file):
@@ -153,6 +162,7 @@ def parse_nm(elf_file, cmd_nm):
         sys.exit(f"Error running {cmd_nm}")
 
     nm_data = {}
+
     for line in output.split('\n'):
         parts = line.split()
         if len(parts) < 3:
@@ -175,11 +185,13 @@ def parse_nm(elf_file, cmd_nm):
 
         if len(parts) > src_partnum:
             src_info = parts[src_partnum]
-            if not ':' in src_info:
-                raise Exception("Parser error")
-            parts = src_info.rsplit(':', 1)
-            src_file = parts[0]
-            src_line = int(parts[1])
+            if ':' in src_info:
+                parts = src_info.rsplit(':', 1)
+                src_file = parts[0]
+                src_line = int(parts[1])
+            else:
+                src_file = ""
+                src_line = -1
         else:
             src_file = ""
             src_line = -1
@@ -192,6 +204,24 @@ def parse_nm(elf_file, cmd_nm):
 
 def add_nm_info(symbols, elf_file, cmd_nm):
     nm_data = parse_nm(elf_file, cmd_nm)
+
+    # Search for memory range symbols
+    for key, data in nm_data.items():
+        if key.name == '_image_ram_start':
+            ram_start = key.addr
+        elif key.name == '_image_ram_end':
+            ram_end = key.addr
+        elif key.name == '__rom_region_start':
+            flash_start = key.addr
+        elif key.name == '__rom_region_end':
+            flash_end = key.addr
+
+    # Set memory ranges as class variables if found
+    if 'ram_start' in locals() and 'ram_end' in locals() and \
+       'flash_start' in locals() and 'flash_end' in locals():
+        Symbol.ram_range = (ram_start, ram_end)
+        Symbol.flash_range = (flash_start, flash_end)
+
     for key, sym in symbols.items():
         if key not in nm_data:
             continue

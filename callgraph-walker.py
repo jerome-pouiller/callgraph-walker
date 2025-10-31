@@ -70,8 +70,17 @@ def action_show(symbols, symbol_names):
             print(f"        - {file}: {', '.join(sorted(sources[key]))}")
 
     def show(sym):
+        # Determine section
+        if collector.Symbol.ram_range and collector.Symbol.flash_range:
+            if collector.Symbol.ram_range[0] <= sym.src.addr <= collector.Symbol.ram_range[1]:
+                section = " (RAM)"
+            elif collector.Symbol.flash_range[0] <= sym.src.addr <= collector.Symbol.flash_range[1]:
+                section = " (Flash)"
+            else:
+                section = " (Unknown Section)"
+
         print(f"Symbol: {sym.name}")
-        print(f"    address: 0x{sym.src.addr:x}")
+        print(f"    address: 0x{sym.src.addr:x}{section}")
         print(f"    size: {sym.size}")
         print(f"    frame size: {sym.frame_size}")
         print(f"    frame qualifiers: {sym.frame_qualifiers}")
