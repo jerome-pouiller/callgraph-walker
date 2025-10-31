@@ -32,10 +32,11 @@ environment.
 Thanassis Tsiodras wrote a similar tool called [checkStackUsage][2]. I wanted to
 go further on this way.
 
-Clang and LLVM are able to generate callgraphs since version 20. Many Language
-Server are also able to provide it. They require a perfect knowledge of the
-build environment. Callgraph walker tries to be more versatile and easier to
-setup.
+Clang and LLVM are able to generate callgraphs since version 20. Gcc also
+support -fcallgraph-info (we already rely on -fstack-usage for the frame sizes).
+Many Language Server are also able to provide it. They require a perfect
+knowledge of the build environment. Callgraph walker tries to be more versatile
+and easier to setup.
 
 
 [1]: https://github.com/HBehrens/puncover
