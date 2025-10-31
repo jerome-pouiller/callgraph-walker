@@ -1,24 +1,9 @@
- - Add some class in the code:
-    - symbols key is currently a tuple. It should be a real class (ie.
-      SymId(name, addr)) with comparaison and stringify operators
-    - Symbols should provide functions to get name with "[I,L,R]" (Indirect
-      Loop, RAM) flags if required.
-    - Indirect calls are currently a tuple. It should be class.
-    - src_file should automatically remove the prefix when displayed
- - Retrieve symbols _image_ram_start, _image_ram_end and __rom_region_start,
-   __rom_region_end.
-     - Verify where the symbols are located.
-     - List functions located in RAM
-     - List function located in RAM that depends on function in Flash
- - In callee, all_callee, add a mark if the function use a callback
- - Compute the worst stack depth
-     - Identify recursve calls
+ - Improve the worst stack depth computation
      - Identify unbounded stack size
-     - identify the indirect calls
+     - Identify the indirect calls
  - Find a way for the users to inform the tool about the real functions behind
    the callbacks
  - Add a mode to generate the Cmakelist fragment to place function and its
    dependencies in RAM
  - Track access to .ro_data, .data and .bss
      - .data may have pointer to .rodata, so flash acesses can be masked
- - Add support for x86_64, x86 and other architectures
