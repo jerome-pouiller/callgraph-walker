@@ -23,9 +23,9 @@ def action_list_cycles(cycles):
 def action_list(symbols, glob):
     for key in sorted(symbols):
         if not glob:
-            print(key[0])
-        elif fnmatch.fnmatchcase(key[0], glob):
-            print(key[0])
+            print(symbols[key].name)
+        elif fnmatch.fnmatchcase(symbols[key].name, glob):
+            print(symbols[key].name)
 
 def action_health(symbols, has_su):
 
@@ -70,9 +70,9 @@ def action_show(symbols, symbol_names):
             if not src_file in vals:
                 vals[src_file] = []
             if symbols[key].indirect_call:
-                vals[src_file].append(f"{key[0]}[I]")
+                vals[src_file].append(f"{symbols[key].name}[I]")
             else:
-                vals[src_file].append(f"{key[0]}")
+                vals[src_file].append(f"{symbols[key].name}")
         if not vals:
             print(f"    callers (0): (none)")
         else:
@@ -88,9 +88,9 @@ def action_show(symbols, symbol_names):
             if not src_file in vals:
                 vals[src_file] = []
             if symbols[key].indirect_call:
-                vals[src_file].append(f"{key[0]}[I]")
+                vals[src_file].append(f"{symbols[key].name}[I]")
             else:
-                vals[src_file].append(f"{key[0]}")
+                vals[src_file].append(f"{symbols[key].name}")
         if not vals:
             print(f"    callees (0): (none)")
         else:
@@ -105,9 +105,9 @@ def action_show(symbols, symbol_names):
             if not src_file in vals:
                 vals[src_file] = []
             if symbols[key].indirect_call:
-                vals[src_file].append(f"{key[0]}[I]")
+                vals[src_file].append(f"{symbols[key].name}[I]")
             else:
-                vals[src_file].append(f"{key[0]}")
+                vals[src_file].append(f"{symbols[key].name}")
         if not vals:
             print(f"    all callees (0): (none)")
         else:
