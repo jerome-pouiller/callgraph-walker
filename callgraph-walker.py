@@ -54,6 +54,21 @@ def action_health(symbols, has_su):
 
 def action_show(symbols, symbol_names):
 
+    def print_grouped(title, sym_ids):
+        if not sym_ids:
+            print(f"    {title} (0): (none)")
+            return
+        print(f"    {title} ({len(sym_ids)}):")
+        sources = {}
+        for key in sym_ids:
+            src_file = symbols[key].src.file
+            if src_file not in sources:
+                sources[src_file] = []
+            sources[src_file].append(str(symbols[key]))
+        for key in sorted(sources):
+            file = collector.Src(file=key)
+            print(f"        - {file}: {', '.join(sorted(sources[key]))}")
+
     def show(sym):
         print(f"Symbol: {sym.name}")
         print(f"    address: 0x{sym.src.addr:x}")
@@ -64,48 +79,9 @@ def action_show(symbols, symbol_names):
         print(f"    source: {sym.src}")
         print(f"    cycles: {sym.cycles if sym.cycles else '(none)'}")
 
-        vals = { }
-        for key in sym.callers:
-            src_file = symbols[key].src.file
-            if not src_file in vals:
-                vals[src_file] = []
-            vals[src_file].append(str(symbols[key]))
-        if not vals:
-            print(f"    callers (0): (none)")
-        else:
-            print(f"    callers ({len(sym.callers)}):")
-            for key in sorted(vals):
-                src = collector.Src(file=key)
-                print(f"        - {src}: {', '.join(sorted(vals[key]))}")
-
-
-        vals = { }
-        for key in sym.callees:
-            src_file = symbols[key].src.file
-            if not src_file in vals:
-                vals[src_file] = []
-            vals[src_file].append(str(symbols[key]))
-        if not vals:
-            print(f"    callees (0): (none)")
-        else:
-            print(f"    callees ({len(sym.callees)}):")
-            for key in sorted(vals):
-                src = collector.Src(file=key)
-                print(f"        - {src}: {', '.join(sorted(vals[key]))}")
-
-        vals = { }
-        for key in sym.all_callees:
-            src_file = symbols[key].src.file
-            if not src_file in vals:
-                vals[src_file] = []
-            vals[src_file].append(str(symbols[key]))
-        if not vals:
-            print(f"    all callees (0): (none)")
-        else:
-            print(f"    all callees ({len(sym.all_callees)}):")
-            for key in sorted(vals):
-                src = collector.Src(file=key)
-                print(f"        - {src}: {', '.join(sorted(vals[key]))}")
+        print_grouped("callers", sym.callers)
+        print_grouped("callees", sym.callees)
+        print_grouped("all callees", sym.all_callees)
 
         if sym.indirect_call:
             print(f"    indirect calls ({len(sym.indirect_call)}):")
