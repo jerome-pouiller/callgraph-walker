@@ -78,6 +78,11 @@ class Symbol:
         self.su_not_found = True
         self.indirect_call: list = []
 
+    def __str__(self):
+        if self.indirect_call:
+            return f"{self.name}[I]"
+        return self.name
+
 
 def parse_objdump(elf_file):
     try:

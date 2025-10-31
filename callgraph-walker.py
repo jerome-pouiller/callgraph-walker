@@ -69,10 +69,7 @@ def action_show(symbols, symbol_names):
             src_file = symbols[key].src.file
             if not src_file in vals:
                 vals[src_file] = []
-            if symbols[key].indirect_call:
-                vals[src_file].append(f"{symbols[key].name}[I]")
-            else:
-                vals[src_file].append(f"{symbols[key].name}")
+            vals[src_file].append(str(symbols[key]))
         if not vals:
             print(f"    callers (0): (none)")
         else:
@@ -87,10 +84,7 @@ def action_show(symbols, symbol_names):
             src_file = symbols[key].src.file
             if not src_file in vals:
                 vals[src_file] = []
-            if symbols[key].indirect_call:
-                vals[src_file].append(f"{symbols[key].name}[I]")
-            else:
-                vals[src_file].append(f"{symbols[key].name}")
+            vals[src_file].append(str(symbols[key]))
         if not vals:
             print(f"    callees (0): (none)")
         else:
@@ -104,10 +98,7 @@ def action_show(symbols, symbol_names):
             src_file = symbols[key].src.file
             if not src_file in vals:
                 vals[src_file] = []
-            if symbols[key].indirect_call:
-                vals[src_file].append(f"{symbols[key].name}[I]")
-            else:
-                vals[src_file].append(f"{symbols[key].name}")
+            vals[src_file].append(str(symbols[key]))
         if not vals:
             print(f"    all callees (0): (none)")
         else:
