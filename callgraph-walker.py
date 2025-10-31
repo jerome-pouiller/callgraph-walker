@@ -67,7 +67,7 @@ def action_health(symbols, has_su):
         print_issue("Symbols in RAM calls symbols in Flash", ram_calls_flash)
 
 
-def action_show(symbols, symbol_names):
+def action_show(symbols, patterns):
 
     def print_grouped(title, sym_ids):
         if not sym_ids:
@@ -129,16 +129,20 @@ def action_show(symbols, symbol_names):
         print(", ".join(flags) if flags else "(none)")
         print()
 
-    for sym_name in symbol_names:
-        # Find symbol by name
-        found = False
+    # Match symbols using glob patterns
+    matched_keys = set()
+    for pattern in patterns:
         for key, sym in symbols.items():
-            if sym.name == sym_name:
-                show(sym)
-                found = True
-        if not found:
-            print(f"Symbol not found: {sym_name}")
-            print()
+            if fnmatch.fnmatchcase(sym.name, pattern):
+                matched_keys.add(key)
+
+    # Show matched symbols
+    if matched_keys:
+        for key in sorted(matched_keys):
+            show(symbols[key])
+    else:
+        print(f"No symbols matched the patterns: {', '.join(patterns)}")
+        print()
 
 
 def action_check_stack_depth(symbols):
@@ -170,8 +174,8 @@ def main():
         usage='%(prog)s -e ELF_FILE ACTION [ARGS...]',
         epilog='''
 Available actions:
-  list [GLOB]           List all symbols, optionally filtered by glob pattern
-  show SYMBOL [...]     Show detailed information for one or more symbols
+  list [GLOB...]        List all symbols, optionally filtered by glob patterns
+  show PATTERN [...]    Show detailed information for symbols matching patterns
   health                Check for symbols with issues (missing info, etc.)
   list_cycles           List all detected recursion cycles
   check_stack_depth     Show functions with worst stack depth
@@ -213,7 +217,7 @@ Available actions:
         action_list(symbols, args.args[0] if args.args else "")
     elif action == 'show':
         if not args.args:
-            print("Error: 'show' action requires at least one symbol name")
+            print("Error: 'show' action requires at least one pattern")
             sys.exit(1)
         action_show(symbols, args.args)
     elif action == 'check_stack_depth':
