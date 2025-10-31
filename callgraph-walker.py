@@ -100,6 +100,10 @@ def action_show(symbols, symbol_names):
         print(f"    size: {sym.size}")
         print(f"    frame size: {sym.frame_size}")
         print(f"    frame qualifiers: {sym.frame_qualifiers}")
+        if sym.callee_worst_stack:
+            print(f"    worse stack: {sym.worst_stack_depth} bytes ({symbols[sym.callee_worst_stack]})")
+        else:
+            print(f"    worse stack: (unknown)")
         print(f"    symbol type: {sym.sym_type}")
         print(f"    source: {sym.src}")
         print(f"    cycles: {sym.cycles if sym.cycles else '(none)'}")
