@@ -96,6 +96,8 @@ class Symbol:
         self.sym_not_found = True
         self.su_not_found = True
         self.indirect_call: list = []
+        self.callee_worst_stack = None  # SymId of worst callee
+        self.worst_stack_depth = -1
 
     def is_in_ram(self):
         return Symbol.ram_range and Symbol.ram_range[0] <= self.src.addr <= Symbol.ram_range[1]
@@ -353,10 +355,22 @@ def detect_recursion(symbols):
         visited.add(key)
         callstack.append(key)
         symbols[key].all_callees = set()
+        # Calculate worst stack depth
+        worst_depth = 0
+        worst_callee = None
         for callee_key in symbols[key].callees:
             symbols[key].all_callees.add(callee_key)
             if callee_key in symbols:
                 symbols[key].all_callees.update(dfs(callee_key, callstack.copy()))
+                callee_sym = symbols[callee_key]
+                if callee_sym.worst_stack_depth >= 0:
+                    depth = callee_sym.worst_stack_depth
+                    if depth > worst_depth:
+                        worst_depth = depth
+                        worst_callee = callee_key
+        symbols[key].callee_worst_stack = worst_callee
+        if symbols[key].frame_size >= 0:
+            symbols[key].worst_stack_depth = worst_depth + symbols[key].frame_size
         return symbols[key].all_callees
 
     for key in symbols:

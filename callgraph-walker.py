@@ -137,6 +137,29 @@ def action_show(symbols, symbol_names):
             print()
 
 
+def action_check_stack_depth(symbols):
+    # Find entry point symbols (no callers) with worst stack depth
+    worst_stack = []
+    for key, sym in symbols.items():
+        if not sym.callers and sym.worst_stack_depth > 0 and len(sym.cycles) == 0:
+            worst_stack.append((sym.worst_stack_depth, key, sym))
+    worst_stack.sort(reverse=True, key=lambda x: x[0])
+
+    for depth, key, sym in worst_stack[:10]:
+        # Build the call chain
+        chain = []
+        current_key = key
+        while current_key:
+            current_sym = symbols[current_key]
+            chain.append((current_sym.name, current_sym.frame_size))
+            current_key = current_sym.callee_worst_stack
+        # Display
+        print(f"{sym.name}: {depth} bytes")
+        for i, (name, frame) in enumerate(chain):
+            indent = "  " * i
+            print(f"  {indent}{name} ({frame} bytes)")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Extract the call graph and other useful from an ELF binary',
@@ -147,6 +170,7 @@ Available actions:
   show SYMBOL [...]     Show detailed information for one or more symbols
   health                Check for symbols with issues (missing info, etc.)
   list_cycles           List all detected recursion cycles
+  check_stack_depth     Show functions with worst stack depth
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -171,10 +195,10 @@ Available actions:
     arch_config = collector.detect_arch(elf_file)
     symbols = collector.parse_objdump(elf_file, arch_config, cmd_objdump)
     collector.build_reverse_callgraph(symbols)
-    cycles = collector.detect_recursion(symbols)
     collector.add_nm_info(symbols, elf_file, cmd_nm)
     has_su = collector.add_su_info(symbols, searchpath_su)
     collector.add_addr2line_info(symbols, elf_file, cmd_addr2line)
+    cycles = collector.detect_recursion(symbols)
 
     if action == 'list_cycles':
         action_list_cycles(cycles)
@@ -187,6 +211,8 @@ Available actions:
             print("Error: 'show' action requires at least one symbol name")
             sys.exit(1)
         action_show(symbols, args.args)
+    elif action == 'check_stack_depth':
+        action_check_stack_depth(symbols)
     else:
         print(f"Unknown action: {action}")
         sys.exit(1)
