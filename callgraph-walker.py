@@ -54,25 +54,16 @@ def action_health(symbols, has_su):
 
     # Memory section checks (only if ranges are defined)
     if collector.Symbol.ram_range and collector.Symbol.flash_range:
-        def is_in_ram(sym):
-            return collector.Symbol.ram_range[0] <= sym.src.addr <= collector.Symbol.ram_range[1]
-
-        def is_in_flash(sym):
-            return collector.Symbol.flash_range[0] <= sym.src.addr <= collector.Symbol.flash_range[1]
-
-        def is_unknown_section(sym):
-            return not is_in_ram(sym) and not is_in_flash(sym)
-
         def ram_calls_flash(sym):
-            if not is_in_ram(sym):
+            if not sym.is_in_ram():
                 return False
             for callee_key in sym.callees:
-                if callee_key in symbols and is_in_flash(symbols[callee_key]):
+                if callee_key in symbols and symbols[callee_key].is_in_flash():
                     return True
             return False
 
-        print_issue("Symbols located in unknown section", is_unknown_section)
-        print_issue("Symbols located in RAM", is_in_ram)
+        print_issue("Symbols located in unknown section", lambda s: s.is_unknown_section())
+        print_issue("Symbols located in RAM", lambda s: s.is_in_ram())
         print_issue("Symbols in RAM calls symbols in Flash", ram_calls_flash)
 
 
@@ -95,10 +86,11 @@ def action_show(symbols, symbol_names):
 
     def show(sym):
         # Determine section
+        section = ""
         if collector.Symbol.ram_range and collector.Symbol.flash_range:
-            if collector.Symbol.ram_range[0] <= sym.src.addr <= collector.Symbol.ram_range[1]:
+            if sym.is_in_ram():
                 section = " (RAM)"
-            elif collector.Symbol.flash_range[0] <= sym.src.addr <= collector.Symbol.flash_range[1]:
+            elif sym.is_in_flash():
                 section = " (Flash)"
             else:
                 section = " (Unknown Section)"

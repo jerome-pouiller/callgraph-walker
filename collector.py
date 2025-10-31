@@ -97,15 +97,23 @@ class Symbol:
         self.su_not_found = True
         self.indirect_call: list = []
 
+    def is_in_ram(self):
+        return Symbol.ram_range and Symbol.ram_range[0] <= self.src.addr <= Symbol.ram_range[1]
+
+    def is_in_flash(self):
+        return Symbol.flash_range and Symbol.flash_range[0] <= self.src.addr <= Symbol.flash_range[1]
+
+    def is_unknown_section(self):
+        return Symbol.ram_range and Symbol.flash_range and not self.is_in_ram() and not self.is_in_flash()
+
     def __str__(self):
         suffix = ""
         if self.indirect_call:
             suffix += "[I]"
-        if Symbol.ram_range and Symbol.flash_range:
-            if Symbol.ram_range[0] <= self.src.addr <= Symbol.ram_range[1]:
-                suffix += "[R]"
-            elif not (Symbol.flash_range[0] <= self.src.addr <= Symbol.flash_range[1]):
-                suffix += "[U]"
+        if self.is_in_ram():
+            suffix += "[R]"
+        elif self.is_unknown_section():
+            suffix += "[U]"
         return f"{self.name}{suffix}"
 
 
