@@ -22,23 +22,37 @@ pattern_fn = re.compile(r'^([0-9a-f]+) <(.+)>:')
 pattern_call = re.compile(r'^\s+[0-9a-f]+:\s+.+\s+bl[x]?\s+([0-9a-f]+)\s+<(.+)>')
 pattern_fn_ptr = re.compile(r'^\s+([0-9a-f]+):\s+.+\s+bl[x]?\s+(r\d+)')
 
+class Src:
+    prefix_strip = ""
+
+    def __init__(self, addr: int = 0, file: str = "", line: int = -1):
+        self.addr = addr
+        self.file = file
+        self.line = line
+
+    def __str__(self):
+        if not self.file:
+            return "<unknown>"
+        file_stripped = re.sub(self.prefix_strip, '', self.file)
+        if self.line < 0:
+            return f"{file_stripped}"
+        return f"{file_stripped}:{self.line}"
+
 class Symbol:
     def __init__(self, name: str, offset: int = 0):
         self.name = name
-        self.offset = offset
         self.size = -1
         self.frame_size = -1
         self.frame_qualifiers = ""
         self.sym_type = ""
-        self.src_file = ""
-        self.src_line = -1
+        self.src = Src(addr=offset)
         self.callers: Set[tuple] = set()
         self.callees: Set[tuple] = set()
         self.all_callees: Set[tuple] = set()
         self.cycles: Set[int] = set()
         self.sym_not_found = True
         self.su_not_found = True
-        self.indirect_call: list = []  # List of tuples (offset, src_file, src_line)
+        self.indirect_call: list = []  # List of Src objects
 
 
 def parse_objdump(elf_file):
@@ -68,7 +82,7 @@ def parse_objdump(elf_file):
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            symbols[cur_fn].indirect_call.append((int(m.group(1), 16), "", -1))
+            symbols[cur_fn].indirect_call.append(Src(int(m.group(1), 16)))
     return symbols
 
 
@@ -124,8 +138,8 @@ def add_nm_info(symbols, elf_file):
             continue
         sym.size = nm_data[key][0]
         sym.sym_type = nm_data[key][1]
-        sym.src_file = nm_data[key][2]
-        sym.src_line = nm_data[key][3]
+        sym.src.file = nm_data[key][2]
+        sym.src.line = nm_data[key][3]
         sym.sym_not_found = False
 
 def parse_su(search_dir):
@@ -168,7 +182,7 @@ def add_su_info(symbols, search_dir):
     if not su_data:
         return False
     for sym in symbols.values():
-        su_key = (sym.name, sym.src_file, sym.src_line)
+        su_key = (sym.name, sym.src.file, sym.src.line)
         if su_key in su_data:
             sym.frame_size, sym.frame_qualifiers = su_data[su_key]
             sym.su_not_found = False
@@ -206,21 +220,16 @@ def parse_addr2line(elf_file, addresses):
 def add_addr2line_info(symbols, elf_file):
     all_offsets = []
     for sym in symbols.values():
-        for offset, _, _ in sym.indirect_call:
-            all_offsets.append(offset)
+        for src in sym.indirect_call:
+            all_offsets.append(src.addr)
 
     if not all_offsets:
         return
     addr2line_data = parse_addr2line(elf_file, all_offsets)
     for sym in symbols.values():
-        updated_calls = []
-        for offset, _, _ in sym.indirect_call:
-            if offset in addr2line_data:
-                src_file, src_line = addr2line_data[offset]
-                updated_calls.append((offset, src_file, src_line))
-            else:
-                updated_calls.append((offset, "", -1))
-        sym.indirect_call = updated_calls
+        for src in sym.indirect_call:
+            if src.addr in addr2line_data:
+                src.file, src.line = addr2line_data[src.addr]
 
 
 def build_reverse_callgraph(symbols):

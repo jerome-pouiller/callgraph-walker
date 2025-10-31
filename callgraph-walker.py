@@ -16,8 +16,6 @@ import fnmatch
 import argparse
 import collector
 
-prefix_strip = ""
-
 def action_list_cycles(cycles):
     for k, v in enumerate(cycles):
         print(f"{k} -> {', '.join(v)}")
@@ -47,7 +45,7 @@ def action_health(symbols, has_su):
     else:
         print_issue("Stack usage not found", lambda s: s.su_not_found)
 
-    print_issue("Source not found", lambda s: not s.src_file)
+    print_issue("Source not found", lambda s: not s.src.file)
     print_issue("Type incorrect",
                 lambda s: s.sym_type not in ['t', 'T', 'w', 'W'],
                 lambda s: f"{s.name} ({s.sym_type})")
@@ -58,20 +56,17 @@ def action_show(symbols, symbol_names):
 
     def show(sym):
         print(f"Symbol: {sym.name}")
-        print(f"    offset: 0x{sym.offset:x}")
+        print(f"    offset: 0x{sym.src.addr:x}")
         print(f"    size: {sym.size}")
         print(f"    frame size: {sym.frame_size}")
         print(f"    frame qualifiers: {sym.frame_qualifiers}")
         print(f"    symbol type: {sym.sym_type}")
-        if sym.src_file:
-            print(f"    source: {re.sub(prefix_strip, '', sym.src_file)}:{sym.src_line}")
-        else:
-            print(f"    source: (none)")
+        print(f"    source: {sym.src}")
         print(f"    cycles: {sym.cycles if sym.cycles else '(none)'}")
 
         vals = { }
         for key in sym.callers:
-            src_file = symbols[key].src_file
+            src_file = symbols[key].src.file
             if not src_file in vals:
                 vals[src_file] = []
             if symbols[key].indirect_call:
@@ -83,12 +78,13 @@ def action_show(symbols, symbol_names):
         else:
             print(f"    callers ({len(sym.callers)}):")
             for key in sorted(vals):
-                print(f"        - {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                src = collector.Src(file=key)
+                print(f"        - {src}: {', '.join(sorted(vals[key]))}")
 
 
         vals = { }
         for key in sym.callees:
-            src_file = symbols[key].src_file
+            src_file = symbols[key].src.file
             if not src_file in vals:
                 vals[src_file] = []
             if symbols[key].indirect_call:
@@ -100,11 +96,12 @@ def action_show(symbols, symbol_names):
         else:
             print(f"    callees ({len(sym.callees)}):")
             for key in sorted(vals):
-                print(f"        - {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                src = collector.Src(file=key)
+                print(f"        - {src}: {', '.join(sorted(vals[key]))}")
 
         vals = { }
         for key in sym.all_callees:
-            src_file = symbols[key].src_file
+            src_file = symbols[key].src.file
             if not src_file in vals:
                 vals[src_file] = []
             if symbols[key].indirect_call:
@@ -116,15 +113,13 @@ def action_show(symbols, symbol_names):
         else:
             print(f"    all callees ({len(sym.all_callees)}):")
             for key in sorted(vals):
-                print(f"        - {re.sub(prefix_strip, '', key) if key else '<unknown>'}: {', '.join(sorted(vals[key]))}")
+                src = collector.Src(file=key)
+                print(f"        - {src}: {', '.join(sorted(vals[key]))}")
 
         if sym.indirect_call:
             print(f"    indirect calls ({len(sym.indirect_call)}):")
-            for offset, src_file, src_line in sym.indirect_call:
-                if src_file:
-                    print(f"        - 0x{offset:x} -> {re.sub(prefix_strip, '', src_file)}:{src_line}")
-                else:
-                    print(f"        - 0x{offset:x}")
+            for src in sym.indirect_call:
+                print(f"        - 0x{src.addr:x} -> {src}")
         else:
             print(f"    indirect calls: (none)")
         print(f"    flags: ", end="")
@@ -133,7 +128,7 @@ def action_show(symbols, symbol_names):
             flags.append("type_mismatch")
         if sym.sym_not_found:
             flags.append("not_found")
-        if not sym.src_file:
+        if not sym.src.file:
             flags.append("no_src")
         print(", ".join(flags) if flags else "(none)")
         print()
@@ -151,8 +146,6 @@ def action_show(symbols, symbol_names):
 
 
 def main():
-    global prefix_strip
-
     parser = argparse.ArgumentParser(
         description='Extract the call graph and other useful from an ELF binary',
         usage='%(prog)s -e ELF_FILE ACTION [ARGS...]'
@@ -164,7 +157,8 @@ def main():
     args = parser.parse_args()
     elf_file = args.elf
     action = args.action
-    prefix_strip = f'^{args.prefix}'
+    collector.Src.prefix_strip = f'^{args.prefix}'
+
     searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 
     symbols = collector.parse_objdump(elf_file)
