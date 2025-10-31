@@ -37,17 +37,17 @@ def action_health(symbols, has_su):
             print()
 
     print_issue("Symbol not found", lambda s: s.sym_not_found)
-    print_issue("Size unknown", lambda s: s.size < 0)
+    print_issue("Size unknown", lambda s: s.size < 0 and not s.sym_not_found)
 
     if not has_su:
         print(f"No stack usage data found.")
         print()
     else:
-        print_issue("Stack usage not found", lambda s: s.su_not_found)
+        print_issue("Stack usage not found", lambda s: s.su_not_found and not s.sym_not_found)
 
-    print_issue("Source not found", lambda s: not s.src.file)
+    print_issue("Source not found", lambda s: not s.src.file and not s.sym_not_found)
     print_issue("Type incorrect",
-                lambda s: s.sym_type not in ['t', 'T', 'w', 'W'],
+                lambda s: s.sym_type not in ['t', 'T', 'w', 'W'] and not s.sym_not_found,
                 lambda s: f"{s.name} ({s.sym_type})")
     print_issue("Has indirect calls", lambda s: s.indirect_call)
     print_issue("Part of a cycle", lambda s: s.cycles)
