@@ -27,7 +27,7 @@ def action_list(symbols, glob):
         elif fnmatch.fnmatchcase(symbols[key].name, glob):
             print(symbols[key].name)
 
-def action_health(symbols, has_su):
+def action_sanity(symbols, has_su):
 
     def print_issue(title, predicate, formatter=lambda s: f"{s.name}"):
         syms = [formatter(symbols[key]) for key in sorted(symbols) if predicate(symbols[key])]
@@ -176,7 +176,7 @@ def main():
 Available actions:
   list [GLOB...]        List all symbols, optionally filtered by glob patterns
   show PATTERN [...]    Show detailed information for symbols matching patterns
-  health                Check for symbols with issues (missing info, etc.)
+  sanity                Check for symbols with issues (missing info, etc.)
   list_cycles           List all detected recursion cycles
   check_stack_depth     Show functions with worst stack depth
         ''',
@@ -211,8 +211,8 @@ Available actions:
 
     if action == 'list_cycles':
         action_list_cycles(cycles)
-    elif action == 'health':
-        action_health(symbols, has_su)
+    elif action == 'sanity':
+        action_sanity(symbols, has_su)
     elif action == 'list':
         action_list(symbols, args.args[0] if args.args else "")
     elif action == 'show':
