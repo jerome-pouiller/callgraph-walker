@@ -1,6 +1,6 @@
  - Add some class in the code:
     - symbols key is currently a tuple. It should be a real class (ie.
-      SymId(name, offset)) with comparaison and stringify operators
+      SymId(name, addr)) with comparaison and stringify operators
     - Symbols should provide functions to get name with "[I,L,R]" (Indirect
       Loop, RAM) flags if required.
     - Indirect calls are currently a tuple. It should be class.

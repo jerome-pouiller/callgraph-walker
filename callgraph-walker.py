@@ -56,7 +56,7 @@ def action_show(symbols, symbol_names):
 
     def show(sym):
         print(f"Symbol: {sym.name}")
-        print(f"    offset: 0x{sym.src.addr:x}")
+        print(f"    address: 0x{sym.src.addr:x}")
         print(f"    size: {sym.size}")
         print(f"    frame size: {sym.frame_size}")
         print(f"    frame qualifiers: {sym.frame_qualifiers}")

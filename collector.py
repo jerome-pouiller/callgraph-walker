@@ -39,13 +39,13 @@ class Src:
         return f"{file_stripped}:{self.line}"
 
 class Symbol:
-    def __init__(self, name: str, offset: int = 0):
+    def __init__(self, name: str, addr: int = 0):
         self.name = name
         self.size = -1
         self.frame_size = -1
         self.frame_qualifiers = ""
         self.sym_type = ""
-        self.src = Src(addr=offset)
+        self.src = Src(addr=addr)
         self.callers: Set[tuple] = set()
         self.callees: Set[tuple] = set()
         self.all_callees: Set[tuple] = set()
@@ -68,16 +68,16 @@ def parse_objdump(elf_file):
         m = pattern_fn.match(line)
         if m:
             name = m.group(2)
-            offset = int(m.group(1), 16)
-            cur_fn = (name, offset)
-            symbols[cur_fn] = Symbol(name, offset)
+            addr = int(m.group(1), 16)
+            cur_fn = (name, addr)
+            symbols[cur_fn] = Symbol(name, addr)
         m = pattern_call.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            callee_offset = int(m.group(1), 16)
+            callee_addr = int(m.group(1), 16)
             callee_name = m.group(2)
-            symbols[cur_fn].callees.add((callee_name, callee_offset))
+            symbols[cur_fn].callees.add((callee_name, callee_addr))
         m = pattern_fn_ptr.match(line)
         if m:
             if not cur_fn:
@@ -100,7 +100,7 @@ def parse_nm(elf_file):
             continue
 
         # Format: OFFSET [SIZE] TYPE NAME [SOURCE:LINE]
-        offset = int(parts[0], 16)
+        addr = int(parts[0], 16)
         if len(parts) >= 4 and parts[1][0] in '0123456789abcdef':
             # Has size
             size = int(parts[1], 16)
@@ -126,7 +126,7 @@ def parse_nm(elf_file):
             src_line = -1
         # FIXME: detect case where binary has not been built with -g and no
         #        source files are available
-        nm_data[(name, offset)] = (size, sym_type, src_file, src_line)
+        nm_data[(name, addr)] = (size, sym_type, src_file, src_line)
 
     return nm_data
 
@@ -218,14 +218,14 @@ def parse_addr2line(elf_file, addresses):
 
 
 def add_addr2line_info(symbols, elf_file):
-    all_offsets = []
+    all_addrs = []
     for sym in symbols.values():
         for src in sym.indirect_call:
-            all_offsets.append(src.addr)
+            all_addrs.append(src.addr)
 
-    if not all_offsets:
+    if not all_addrs:
         return
-    addr2line_data = parse_addr2line(elf_file, all_offsets)
+    addr2line_data = parse_addr2line(elf_file, all_addrs)
     for sym in symbols.values():
         for src in sym.indirect_call:
             if src.addr in addr2line_data:
