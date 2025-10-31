@@ -38,6 +38,20 @@ class Src:
             return f"{file_stripped}"
         return f"{file_stripped}:{self.line}"
 
+class SymId:
+    def __init__(self, name: str, addr: int):
+        self.name = name
+        self.addr = addr
+
+    def __lt__(self, other):
+        return (self.name, self.addr) < (other.name, other.addr)
+
+    def __eq__(self, other):
+        return (self.name, self.addr) == (other.name, other.addr)
+
+    def __hash__(self):
+        return hash((self.name, self.addr))
+
 class Symbol:
     def __init__(self, name: str, addr: int = 0):
         self.name = name
@@ -46,13 +60,13 @@ class Symbol:
         self.frame_qualifiers = ""
         self.sym_type = ""
         self.src = Src(addr=addr)
-        self.callers: Set[tuple] = set()
-        self.callees: Set[tuple] = set()
-        self.all_callees: Set[tuple] = set()
+        self.callers: Set[SymId] = set()
+        self.callees: Set[SymId] = set()
+        self.all_callees: Set[SymId] = set()
         self.cycles: Set[int] = set()
         self.sym_not_found = True
         self.su_not_found = True
-        self.indirect_call: list = []  # List of Src objects
+        self.indirect_call: list = []
 
 
 def parse_objdump(elf_file):
@@ -67,17 +81,13 @@ def parse_objdump(elf_file):
     for line in output.split('\n'):
         m = pattern_fn.match(line)
         if m:
-            name = m.group(2)
-            addr = int(m.group(1), 16)
-            cur_fn = (name, addr)
-            symbols[cur_fn] = Symbol(name, addr)
+            cur_fn = SymId(m.group(2), int(m.group(1), 16))
+            symbols[cur_fn] = Symbol(m.group(2), int(m.group(1), 16))
         m = pattern_call.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            callee_addr = int(m.group(1), 16)
-            callee_name = m.group(2)
-            symbols[cur_fn].callees.add((callee_name, callee_addr))
+            symbols[cur_fn].callees.add(SymId(m.group(2), int(m.group(1), 16)))
         m = pattern_fn_ptr.match(line)
         if m:
             if not cur_fn:
@@ -126,7 +136,7 @@ def parse_nm(elf_file):
             src_line = -1
         # FIXME: detect case where binary has not been built with -g and no
         #        source files are available
-        nm_data[(name, addr)] = (size, sym_type, src_file, src_line)
+        nm_data[SymId(name, addr)] = (size, sym_type, src_file, src_line)
 
     return nm_data
 
