@@ -115,7 +115,15 @@ def action_show(symbols, symbol_names):
 def main():
     parser = argparse.ArgumentParser(
         description='Extract the call graph and other useful from an ELF binary',
-        usage='%(prog)s -e ELF_FILE ACTION [ARGS...]'
+        usage='%(prog)s -e ELF_FILE ACTION [ARGS...]',
+        epilog='''
+Available actions:
+  list [GLOB]           List all symbols, optionally filtered by glob pattern
+  show SYMBOL [...]     Show detailed information for one or more symbols
+  health                Check for symbols with issues (missing info, etc.)
+  list_cycles           List all detected recursion cycles
+        ''',
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('-e', '--elf', required=True, help='ELF binary file')
     parser.add_argument('-p', '--prefix', help='Prefix to strip when display file paths')
@@ -124,7 +132,10 @@ def main():
     args = parser.parse_args()
     elf_file = args.elf
     action = args.action
-    collector.Src.prefix_strip = f'^{args.prefix}'
+
+    # Set prefix_strip as class variable
+    if args.prefix:
+        collector.Src.prefix_strip = f'^{args.prefix}'
 
     searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 
