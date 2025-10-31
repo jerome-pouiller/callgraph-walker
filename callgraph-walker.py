@@ -30,7 +30,7 @@ def action_list(symbols, glob):
 def action_health(symbols, has_su):
 
     def print_issue(title, predicate, formatter=lambda s: f"{s.name}"):
-        syms =  [formatter(symbols[key]) for key in sorted(symbols) if predicate(symbols[key])]
+        syms = [formatter(symbols[key]) for key in sorted(symbols) if predicate(symbols[key])]
         if syms:
             print(f"{title}:")
             print(f"  {', '.join(syms)}")
@@ -51,6 +51,30 @@ def action_health(symbols, has_su):
                 lambda s: f"{s.name} ({s.sym_type})")
     print_issue("Has indirect calls", lambda s: s.indirect_call)
     print_issue("Part of a cycle", lambda s: s.cycles)
+
+    # Memory section checks (only if ranges are defined)
+    if collector.Symbol.ram_range and collector.Symbol.flash_range:
+        def is_in_ram(sym):
+            return collector.Symbol.ram_range[0] <= sym.src.addr <= collector.Symbol.ram_range[1]
+
+        def is_in_flash(sym):
+            return collector.Symbol.flash_range[0] <= sym.src.addr <= collector.Symbol.flash_range[1]
+
+        def is_unknown_section(sym):
+            return not is_in_ram(sym) and not is_in_flash(sym)
+
+        def ram_calls_flash(sym):
+            if not is_in_ram(sym):
+                return False
+            for callee_key in sym.callees:
+                if callee_key in symbols and is_in_flash(symbols[callee_key]):
+                    return True
+            return False
+
+        print_issue("Symbols located in unknown section", is_unknown_section)
+        print_issue("Symbols located in RAM", is_in_ram)
+        print_issue("Symbols in RAM calls symbols in Flash", ram_calls_flash)
+
 
 def action_show(symbols, symbol_names):
 
