@@ -14,11 +14,6 @@ import sys
 import subprocess
 from typing import Dict, Set
 
-# Change these values accordingly to you environment
-cmd_objdump = "objdump"
-cmd_nm = "nm"
-cmd_addr2line = "addr2line"
-
 class ArchConfig:
     def __init__(self, pattern_fn: str, pattern_call: str, pattern_fn_ptr: str):
         self.pattern_fn = re.compile(pattern_fn)
@@ -123,7 +118,7 @@ def detect_arch(elf_file):
         sys.exit(f"Unsupported architecture in {elf_file}: {output}")
 
 
-def parse_objdump(elf_file, arch_config):
+def parse_objdump(elf_file, arch_config, cmd_objdump):
     try:
         output = subprocess.check_output([cmd_objdump, '-d', elf_file],
                                          universal_newlines=True)
@@ -150,7 +145,7 @@ def parse_objdump(elf_file, arch_config):
     return symbols
 
 
-def parse_nm(elf_file):
+def parse_nm(elf_file, cmd_nm):
     try:
         output = subprocess.check_output([cmd_nm, '-Sl', elf_file],
                                          universal_newlines=True)
@@ -195,8 +190,8 @@ def parse_nm(elf_file):
     return nm_data
 
 
-def add_nm_info(symbols, elf_file):
-    nm_data = parse_nm(elf_file)
+def add_nm_info(symbols, elf_file, cmd_nm):
+    nm_data = parse_nm(elf_file, cmd_nm)
     for key, sym in symbols.items():
         if key not in nm_data:
             continue
@@ -253,7 +248,7 @@ def add_su_info(symbols, search_dir):
     return True
 
 
-def parse_addr2line(elf_file, addresses):
+def parse_addr2line(elf_file, addresses, cmd_addr2line):
     if not addresses:
         return {}
 
@@ -281,7 +276,7 @@ def parse_addr2line(elf_file, addresses):
     return addr2line_data
 
 
-def add_addr2line_info(symbols, elf_file):
+def add_addr2line_info(symbols, elf_file, cmd_addr2line):
     all_addrs = []
     for sym in symbols.values():
         for src in sym.indirect_call:
@@ -289,7 +284,7 @@ def add_addr2line_info(symbols, elf_file):
 
     if not all_addrs:
         return
-    addr2line_data = parse_addr2line(elf_file, all_addrs)
+    addr2line_data = parse_addr2line(elf_file, all_addrs, cmd_addr2line)
     for sym in symbols.values():
         for src in sym.indirect_call:
             if src.addr in addr2line_data:

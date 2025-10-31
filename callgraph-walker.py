@@ -125,27 +125,31 @@ Available actions:
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument('-e', '--elf', required=True, help='ELF binary file')
-    parser.add_argument('-p', '--prefix', help='Prefix to strip when display file paths')
+    parser.add_argument('-e', '--elf', required=True,
+                        help='ELF binary file')
+    parser.add_argument('-p', '--prefix', default="",
+                        help='Prefix to strip when display file paths')
+    parser.add_argument('-c', '--cross', default="",
+                        help='Cross-compilation prefix (e.g., arm-none-eabi-)')
     parser.add_argument('action', help='Action to perform')
     parser.add_argument('args', nargs='*', help='Action arguments')
     args = parser.parse_args()
     elf_file = args.elf
     action = args.action
-
-    # Set prefix_strip as class variable
-    if args.prefix:
-        collector.Src.prefix_strip = f'^{args.prefix}'
+    cmd_objdump = f"{args.cross}objdump"
+    cmd_nm = f"{args.cross}nm"
+    cmd_addr2line = f"{args.cross}addr2line"
+    collector.Src.prefix_strip = f'^{args.prefix}'
 
     searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
 
     arch_config = collector.detect_arch(elf_file)
-    symbols = collector.parse_objdump(elf_file, arch_config)
+    symbols = collector.parse_objdump(elf_file, arch_config, cmd_objdump)
     collector.build_reverse_callgraph(symbols)
     cycles = collector.detect_recursion(symbols)
-    collector.add_nm_info(symbols, elf_file)
+    collector.add_nm_info(symbols, elf_file, cmd_nm)
     has_su = collector.add_su_info(symbols, searchpath_su)
-    collector.add_addr2line_info(symbols, elf_file)
+    collector.add_addr2line_info(symbols, elf_file, cmd_addr2line)
 
     if action == 'list_cycles':
         action_list_cycles(cycles)
