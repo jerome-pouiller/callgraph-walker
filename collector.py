@@ -331,6 +331,28 @@ def add_addr2line_info(symbols, elf_file, cmd_addr2line):
                 src.file, src.line = addr2line_data[src.addr]
 
 
+def simplify_veneer_funcs(symbols):
+    # Replace veneer function references with their actual targets
+    veneer_mapping = {}
+    for key, sym in symbols.items():
+        base_name = re.sub(r'__(.*)_veneer', r'\1', key.name)
+        if base_name == key.name:
+            continue
+        matches = [k for k in symbols if k.name == base_name]
+        if len(matches) != 1:
+            raise Exception(f"Cannot fix veneer symbol {key.name}: {len(matches)} symbols found")
+        veneer_mapping[key] = matches[0]
+
+    for sym in symbols.values():
+        new_callees = set()
+        for key in sym.callees:
+            if key in veneer_mapping:
+                new_callees.add(veneer_mapping[key])
+            else:
+                new_callees.add(key)
+        sym.callees = new_callees
+
+
 def build_reverse_callgraph(symbols):
     for caller_key in symbols:
         for callee_key in symbols[caller_key].callees:

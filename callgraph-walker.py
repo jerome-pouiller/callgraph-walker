@@ -198,6 +198,7 @@ Available actions:
 
     arch_config = collector.detect_arch(elf_file)
     symbols = collector.parse_objdump(elf_file, arch_config, cmd_objdump)
+    collector.simplify_veneer_funcs(symbols)
     collector.build_reverse_callgraph(symbols)
     collector.add_nm_info(symbols, elf_file, cmd_nm)
     has_su = collector.add_su_info(symbols, searchpath_su)
