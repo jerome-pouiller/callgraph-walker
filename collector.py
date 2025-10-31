@@ -26,6 +26,12 @@ class Src:
     prefix_strip = ""
 
     def __init__(self, addr: int = 0, file: str = "", line: int = -1):
+        if isinstance(addr, str):
+            addr = int(addr, 16)
+        if isinstance(line, str):
+            line = int(line, 10)
+        if not isinstance(addr, int) or not isinstance(line, int):
+            raise Exception("Invalid type")
         self.addr = addr
         self.file = file
         self.line = line
@@ -39,7 +45,11 @@ class Src:
         return f"{file_stripped}:{self.line}"
 
 class SymId:
-    def __init__(self, name: str, addr: int):
+    def __init__(self, name: str, addr):
+        if isinstance(addr, str):
+            addr = int(addr, 16)
+        if not isinstance(addr, int):
+            raise Exception("Invalid type")
         self.name = name
         self.addr = addr
 
@@ -53,13 +63,13 @@ class SymId:
         return hash((self.name, self.addr))
 
 class Symbol:
-    def __init__(self, name: str, addr: int = 0):
+    def __init__(self, name: str, addr):
         self.name = name
+        self.src = Src(addr=addr)
         self.size = -1
         self.frame_size = -1
         self.frame_qualifiers = ""
         self.sym_type = ""
-        self.src = Src(addr=addr)
         self.callers: Set[SymId] = set()
         self.callees: Set[SymId] = set()
         self.all_callees: Set[SymId] = set()
@@ -81,18 +91,18 @@ def parse_objdump(elf_file):
     for line in output.split('\n'):
         m = pattern_fn.match(line)
         if m:
-            cur_fn = SymId(m.group(2), int(m.group(1), 16))
-            symbols[cur_fn] = Symbol(m.group(2), int(m.group(1), 16))
+            cur_fn = SymId(m.group(2), m.group(1))
+            symbols[cur_fn] = Symbol(m.group(2), m.group(1))
         m = pattern_call.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            symbols[cur_fn].callees.add(SymId(m.group(2), int(m.group(1), 16)))
+            symbols[cur_fn].callees.add(SymId(m.group(2), m.group(1)))
         m = pattern_fn_ptr.match(line)
         if m:
             if not cur_fn:
                 raise Exception("Parser error")
-            symbols[cur_fn].indirect_call.append(Src(int(m.group(1), 16)))
+            symbols[cur_fn].indirect_call.append(Src(addr=m.group(1)))
     return symbols
 
 
@@ -110,7 +120,7 @@ def parse_nm(elf_file):
             continue
 
         # Format: OFFSET [SIZE] TYPE NAME [SOURCE:LINE]
-        addr = int(parts[0], 16)
+        addr = parts[0]
         if len(parts) >= 4 and parts[1][0] in '0123456789abcdef':
             # Has size
             size = int(parts[1], 16)
@@ -212,7 +222,7 @@ def parse_addr2line(elf_file, addresses):
     except subprocess.CalledProcessError:
         return {}
 
-    result = {}
+    addr2line_data = {}
 
     # Format:
     #  file:line (discriminator X)
@@ -222,9 +232,9 @@ def parse_addr2line(elf_file, addresses):
         parts = line.rsplit(':', 1)
         src_file = parts[0] if parts[0] != '??' else ""
         src_line = parts[1].split()[0]  if parts[1] != '?' else "-1"
-        result[addresses[i]] = (src_file, int(src_line))
+        addr2line_data[addresses[i]] = (src_file, int(src_line))
 
-    return result
+    return addr2line_data
 
 
 def add_addr2line_info(symbols, elf_file):
