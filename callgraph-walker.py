@@ -186,6 +186,8 @@ Available actions:
                         help='ELF binary file')
     parser.add_argument('-p', '--prefix', action='append', default=[],
                         help='Prefix to strip when display file paths (can be specified multiple times)')
+    parser.add_argument('-s', '--stack-usage', action='append', default=[],
+                        help='Look for .su files in these path (can be specified multiple times)')
     parser.add_argument('-c', '--cross', default="",
                         help='Cross-compilation prefix (e.g., arm-none-eabi-)')
     parser.add_argument('action', help='Action to perform')
@@ -198,14 +200,14 @@ Available actions:
     cmd_addr2line = f"{args.cross}addr2line"
     collector.Src.prefix_strip = args.prefix
 
-    searchpath_su = os.path.dirname(os.path.dirname(os.path.abspath(elf_file)))
-
     arch_config = collector.detect_arch(elf_file)
     symbols = collector.parse_objdump(elf_file, arch_config, cmd_objdump)
     collector.simplify_veneer_funcs(symbols)
     collector.build_reverse_callgraph(symbols)
     collector.add_nm_info(symbols, elf_file, cmd_nm)
-    has_su = collector.add_su_info(symbols, searchpath_su)
+    has_su = False
+    for path in args.stack_usage:
+        has_su = collector.add_su_info(symbols, path) or has_su
     collector.add_addr2line_info(symbols, elf_file, cmd_addr2line)
     cycles = collector.detect_recursion(symbols)
 
