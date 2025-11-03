@@ -47,7 +47,7 @@ def action_sanity(symbols, has_su):
 
     print_issue("Source not found", lambda s: not s.src.file and not s.sym_not_found)
     print_issue("Type incorrect",
-                lambda s: s.sym_type not in ['t', 'T', 'w', 'W'] and not s.sym_not_found,
+                lambda s: s.sym_type.lower() not in ['t', 'w', 'v'] and not s.sym_not_found,
                 lambda s: f"{s.name} ({s.sym_type})")
     print_issue("Has indirect calls", lambda s: s.indirect_call)
     print_issue("Part of a cycle", lambda s: s.cycles)
@@ -120,7 +120,7 @@ def action_show(symbols, patterns):
             print(f"    indirect calls: (none)")
         print(f"    flags: ", end="")
         flags = []
-        if sym.sym_type not in ['t', 'T', 'w', 'W']:
+        if sym.sym_type.lower() not in ['t', 'w', 'v']:
             flags.append("type_mismatch")
         if sym.sym_not_found:
             flags.append("not_found")
