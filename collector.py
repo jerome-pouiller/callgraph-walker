@@ -219,13 +219,13 @@ def add_nm_info(symbols, elf_file, cmd_nm):
 
     # Search for memory range symbols
     for key, data in nm_data.items():
-        if key.name == '_image_ram_start':
+        if key.name in [ '_image_ram_start', '__vma_ramfuncs_start__' ]:
             ram_start = key.addr
-        elif key.name == '_image_ram_end':
+        elif key.name in [ '_image_ram_end', '__vma_ramfuncs_end__' ]:
             ram_end = key.addr
-        elif key.name == '__rom_region_start':
+        elif key.name in [ '__rom_region_start', 'linker_code_begin' ]:
             flash_start = key.addr
-        elif key.name == '__rom_region_end':
+        elif key.name in [ '__rom_region_end', 'linker_code_end' ]:
             flash_end = key.addr
 
     # Set memory ranges as class variables if found
