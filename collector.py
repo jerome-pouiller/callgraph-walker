@@ -146,6 +146,7 @@ def parse_objdump(elf_file, arch_config, cmd_objdump):
     except subprocess.CalledProcessError:
         sys.exit(f"Error running {cmd_objdump}")
 
+    pattern_word = re.compile(r'^\s+[0-9a-f]+:\s+[0-9a-f]+\s+\.word\s+0x([0-9a-f]+)')
     symbols = {}
     cur_fn = None
     for line in output.split('\n'):
@@ -158,6 +159,13 @@ def parse_objdump(elf_file, arch_config, cmd_objdump):
             if not cur_fn:
                 raise Exception("Parser error")
             symbols[cur_fn].callees.add(SymId(m.group(2), m.group(1)))
+        # Hack to resolve veneer functions on ARM
+        m = pattern_word.match(line)
+        if m and cur_fn:
+            veneer_match = re.match(r'__(.*)_veneer', cur_fn.name)
+            if veneer_match:
+                symbols[cur_fn].callees.add(SymId(veneer_match.group(1),
+                                                  int(m.group(1), 16) - 1))
         m = arch_config.pattern_fn_ptr.match(line)
         if m:
             if not cur_fn:
@@ -331,31 +339,6 @@ def add_addr2line_info(symbols, elf_file, cmd_addr2line):
         for src in sym.indirect_call:
             if src.addr in addr2line_data:
                 src.file, src.line = addr2line_data[src.addr]
-
-
-def simplify_veneer_funcs(symbols):
-    # Replace veneer function references with their actual targets
-    veneer_mapping = {}
-    for key, sym in symbols.items():
-        base_name = re.sub(r'__(.*)_veneer', r'\1', key.name)
-        if base_name == key.name:
-            continue
-        matches = [k for k in symbols if k.name == base_name]
-        if len(matches) != 1:
-            raise Exception(f"Cannot fix veneer symbol {key.name}: {len(matches)} symbols found")
-        veneer_mapping[key] = matches[0]
-
-    for key in veneer_mapping:
-        del symbols[key]
-
-    for sym in symbols.values():
-        new_callees = set()
-        for key in sym.callees:
-            if key in veneer_mapping:
-                new_callees.add(veneer_mapping[key])
-            else:
-                new_callees.add(key)
-        sym.callees = new_callees
 
 
 def build_reverse_callgraph(symbols):
