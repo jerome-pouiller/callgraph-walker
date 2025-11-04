@@ -289,13 +289,12 @@ def parse_su(search_dir):
 def add_su_info(symbols, search_dir):
     su_data = parse_su(search_dir)
     if not su_data:
-        return False
+        return
     for sym in symbols.values():
         su_key = (sym.name, sym.src.file, sym.src.line)
         if su_key in su_data:
             sym.frame_size, sym.frame_qualifiers = su_data[su_key]
             sym.su_not_found = False
-    return True
 
 
 def parse_addr2line(elf_file, addresses, cmd_addr2line):

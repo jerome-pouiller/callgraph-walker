@@ -204,16 +204,15 @@ Available actions:
     symbols = collector.parse_objdump(elf_file, arch_config, cmd_objdump)
     collector.build_reverse_callgraph(symbols)
     collector.add_nm_info(symbols, elf_file, cmd_nm)
-    has_su = False
     for path in args.stack_usage:
-        has_su = collector.add_su_info(symbols, path) or has_su
+        collector.add_su_info(symbols, path)
     collector.add_addr2line_info(symbols, elf_file, cmd_addr2line)
     cycles = collector.detect_recursion(symbols)
 
     if action == 'list_cycles':
         action_list_cycles(cycles)
     elif action == 'sanity':
-        action_sanity(symbols, has_su)
+        action_sanity(symbols, bool(args.stack_usage))
     elif action == 'list':
         action_list(symbols, args.args[0] if args.args else "")
     elif action == 'show':
