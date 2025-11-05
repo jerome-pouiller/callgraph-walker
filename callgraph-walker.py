@@ -168,6 +168,160 @@ def action_check_stack_depth(symbols):
             print(f"  {indent}{name} ({frame} bytes)")
 
 
+def parse_cmake_cache(build_dir):
+    """
+    Parse CMakeCache.txt and other build files to extract PATH variables that can be used for path substitution.
+    Returns a dict mapping variable names to their values.
+    """
+    cmake_vars = {}
+
+    # Parse CMakeCache.txt
+    cache_file = os.path.join(build_dir, 'CMakeCache.txt')
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    # CMakeCache.txt format: VARIABLE_NAME:TYPE=VALUE
+                    if ':' in line and '=' in line:
+                        parts = line.split(':', 1)
+                        if len(parts) == 2:
+                            var_name = parts[0]
+                            value_part = parts[1].split('=', 1)
+                            if len(value_part) == 2:
+                                var_type = value_part[0]
+                                var_value = value_part[1]
+                                # Only consider PATH variables (and some common ones)
+                                if var_type in ['PATH', 'FILEPATH'] or \
+                                   var_name.endswith('_DIR') or \
+                                   var_name.endswith('_BASE') or \
+                                   '_MODULE_DIR' in var_name:
+                                    cmake_vars[var_name] = var_value
+        except (IOError, ValueError):
+            pass
+
+    # Parse Kconfig module dirs file (contains ZEPHYR_*_MODULE_DIR variables)
+    kconfig_env_file = os.path.join(build_dir, 'Kconfig', 'kconfig_module_dirs.env')
+    if os.path.exists(kconfig_env_file):
+        try:
+            with open(kconfig_env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    # Format: VARIABLE_NAME=VALUE
+                    if '=' in line and not line.startswith('#'):
+                        parts = line.split('=', 1)
+                        if len(parts) == 2:
+                            var_name = parts[0]
+                            var_value = parts[1]
+                            if '_MODULE_DIR' in var_name or var_name.endswith('_BASE'):
+                                cmake_vars[var_name] = var_value
+        except (IOError, ValueError):
+            pass
+
+    return cmake_vars
+
+
+def map_path_to_cmake_var(file_path, cmake_vars):
+    """
+    Try to map a file path to a CMake variable.
+    Returns the path with CMake variable substitution if a match is found.
+    """
+    # Sort by length (longest first) to match most specific paths first
+    sorted_vars = sorted(cmake_vars.items(), key=lambda x: len(x[1]), reverse=True)
+
+    for var_name, var_value in sorted_vars:
+        if var_value and file_path.startswith(var_value):
+            # Replace the variable value with ${VAR_NAME}
+            remaining_path = file_path[len(var_value):].lstrip('/')
+            if remaining_path:
+                return f"${{{var_name}}}/{remaining_path}"
+            else:
+                return f"${{{var_name}}}"
+
+    return file_path
+
+
+def action_relocate(symbols, patterns, build_dir=None):
+    """
+    Generate CMake fragments with zephyr_code_relocate() calls to relocate
+    the specified symbols and all their callees to RAM.
+
+    Args:
+        symbols: Dictionary of symbols
+        patterns: List of patterns to match symbols
+        build_dir: Optional build directory to parse CMakeCache.txt for path mapping
+    """
+    # Parse CMake cache if build directory is provided
+    cmake_vars = {}
+    if build_dir:
+        cmake_vars = parse_cmake_cache(build_dir)
+
+    # Find all symbols matching the patterns
+    matched_keys = set()
+    for pattern in patterns:
+        for key, sym in symbols.items():
+            if fnmatch.fnmatchcase(sym.name, pattern):
+                matched_keys.add(key)
+
+    if not matched_keys:
+        print(f"No symbols matched the patterns: {', '.join(patterns)}")
+        return
+
+    # Collect all symbols to relocate: matched symbols + all their callees
+    symbols_to_relocate = set()
+    for key in matched_keys:
+        symbols_to_relocate.add(key)
+        # Add all callees (transitive closure)
+        for callee_key in symbols[key].all_callees:
+            if callee_key in symbols:
+                symbols_to_relocate.add(callee_key)
+
+    # Group symbols by source file
+    file_to_symbols = {}
+    for key in symbols_to_relocate:
+        sym = symbols[key]
+        if not sym.src.file:
+            # Skip symbols without source file info
+            continue
+        # Skip header files (.h, .hpp, etc.) as they don't generate object files
+        # and functions in headers are typically inline
+        if sym.src.file.lower().endswith(('.h', '.hpp', '.hxx', '.hh')):
+            continue
+        if sym.src.file not in file_to_symbols:
+            file_to_symbols[sym.src.file] = []
+        file_to_symbols[sym.src.file].append(sym.name)
+
+    if not file_to_symbols:
+        print("No symbols with source file information found.")
+        return
+
+    # Generate CMake code for each file
+    for src_file, func_names in sorted(file_to_symbols.items()):
+        # Escape function names and create FILTER pattern
+        # Pattern format: "func1|func2|func3" with escaped special chars
+        escaped_names = [re.escape(name) for name in sorted(func_names)]
+        filter_pattern = "|".join(escaped_names)
+
+        # Map to CMake variable if build_dir was provided
+        if cmake_vars:
+            file_stripped = map_path_to_cmake_var(src_file, cmake_vars)
+            # If mapping succeeded, use it; otherwise fall back to prefix stripping
+            if file_stripped == src_file:
+                # No CMake variable match, apply prefix stripping
+                for prefix in collector.Src.prefix_strip:
+                    file_stripped = re.sub(f'^{prefix}', '', file_stripped)
+        else:
+            # No build_dir provided, use prefix stripping
+            file_stripped = src_file
+            for prefix in collector.Src.prefix_strip:
+                file_stripped = re.sub(f'^{prefix}', '', file_stripped)
+
+        # Generate CMake command
+        print(f"zephyr_code_relocate(FILES {file_stripped}")
+        print(f"                     FILTER \"{filter_pattern}\"")
+        print(f"                     LOCATION RAM)")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Extract the call graph and other useful from an ELF binary',
@@ -179,6 +333,7 @@ Available actions:
   sanity                Check for symbols with issues (missing info, etc.)
   list_cycles           List all detected recursion cycles
   check_stack_depth     Show functions with worst stack depth
+  relocate PATTERN [...] Generate CMake fragments with zephyr_code_relocate() calls (experimental)
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -190,6 +345,8 @@ Available actions:
                         help='Look for .su files in these path (can be specified multiple times)')
     parser.add_argument('-c', '--cross', default="",
                         help='Cross-compilation prefix (e.g., arm-none-eabi-)')
+    parser.add_argument('-b', '--build-dir', default="",
+                        help='Build directory path to parse CMakeCache.txt for path mapping (for relocate action)')
     parser.add_argument('action', help='Action to perform')
     parser.add_argument('args', nargs='*', help='Action arguments')
     args = parser.parse_args()
@@ -222,6 +379,11 @@ Available actions:
         action_show(symbols, args.args)
     elif action == 'check_stack_depth':
         action_check_stack_depth(symbols)
+    elif action == 'relocate':
+        if not args.args:
+            print("Error: 'relocate' action requires at least one pattern")
+            sys.exit(1)
+        action_relocate(symbols, args.args, args.build_dir if args.build_dir else None)
     else:
         print(f"Unknown action: {action}")
         sys.exit(1)
