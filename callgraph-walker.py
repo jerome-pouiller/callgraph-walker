@@ -276,6 +276,20 @@ def action_relocate(symbols, patterns, build_dir=None):
             if callee_key in symbols:
                 symbols_to_relocate.add(callee_key)
 
+    # Check for indirect calls and warn the user
+    indirect_call_warnings = []
+    for key in symbols_to_relocate:
+        sym = symbols[key]
+        if sym.indirect_call:
+            for src in sym.indirect_call:
+                indirect_call_warnings.append((sym.name, src))
+
+    if indirect_call_warnings:
+        print("WARNING: Found indirect calls in functions to relocate:", file=sys.stderr)
+        for func_name, src in indirect_call_warnings:
+            print(f"  {func_name}(): {src}", file=sys.stderr)
+        print("", file=sys.stderr)
+
     # Group symbols by source file
     file_to_symbols = {}
     for key in symbols_to_relocate:
