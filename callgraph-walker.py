@@ -355,51 +355,54 @@ Available actions:
                         help='ELF binary file')
     parser.add_argument('-p', '--prefix', action='append', default=[],
                         help='Prefix to strip when display file paths (can be specified multiple times)')
-    parser.add_argument('-s', '--stack-usage', action='append', default=[],
-                        help='Look for .su files in these path (can be specified multiple times)')
     parser.add_argument('-c', '--cross', default="",
                         help='Cross-compilation prefix (e.g., arm-none-eabi-)')
     parser.add_argument('-b', '--build-dir', default="",
-                        help='Build directory path to parse CMakeCache.txt for path mapping (for relocate action)')
+                        help='Build directory path. Used to search stack usage'
+                             ' (.su) files and for "relocate" to detect paths'
+                             ' mapping. If not specified some heristocs are'
+                             ' used to detect it')
     parser.add_argument('action', help='Action to perform')
     parser.add_argument('args', nargs='*', help='Action arguments')
     args = parser.parse_args()
-    elf_file = args.elf
-    action = args.action
+    m = re.match('(.*)/zephyr/zephyr.elf', args.elf)
+    if not args.build_dir and m:
+        args.build_dir = m.group(1)
+
     cmd_objdump = f"{args.cross}objdump"
     cmd_nm = f"{args.cross}nm"
     cmd_addr2line = f"{args.cross}addr2line"
     collector.Src.prefix_strip = args.prefix
 
-    arch_config = collector.detect_arch(elf_file)
-    symbols = collector.parse_objdump(elf_file, arch_config, cmd_objdump)
+    arch_config = collector.detect_arch(args.elf)
+    symbols = collector.parse_objdump(args.elf, arch_config, cmd_objdump)
     collector.build_reverse_callgraph(symbols)
-    collector.add_nm_info(symbols, elf_file, cmd_nm)
-    for path in args.stack_usage:
-        collector.add_su_info(symbols, path)
-    collector.add_addr2line_info(symbols, elf_file, cmd_addr2line)
+    collector.add_nm_info(symbols, args.elf, cmd_nm)
+    if args.build_dir:
+        collector.add_su_info(symbols, args.build_dir)
+    collector.add_addr2line_info(symbols, args.elf, cmd_addr2line)
     cycles = collector.detect_recursion(symbols)
 
-    if action == 'list_cycles':
+    if args.action == 'list_cycles':
         action_list_cycles(cycles)
-    elif action == 'sanity':
+    elif args.action == 'sanity':
         action_sanity(symbols, bool(args.stack_usage))
-    elif action == 'list':
-        action_list(symbols, args.args[0] if args.args else "")
-    elif action == 'show':
+    elif args.action == 'list':
+        action_list(symbols, args.args)
+    elif args.action == 'show':
         if not args.args:
-            print("Error: 'show' action requires at least one pattern")
+            print("Error: 'show' requires at least one pattern")
             sys.exit(1)
         action_show(symbols, args.args)
-    elif action == 'check_stack_depth':
+    elif args.action == 'check_stack_depth':
         action_check_stack_depth(symbols)
-    elif action == 'relocate':
+    elif args.action == 'relocate':
         if not args.args:
-            print("Error: 'relocate' action requires at least one pattern")
+            print("Error: 'relocate' requires at least one pattern")
             sys.exit(1)
-        action_relocate(symbols, args.args, args.build_dir if args.build_dir else None)
+        action_relocate(symbols, args.args, args.build_dir)
     else:
-        print(f"Unknown action: {action}")
+        print(f"Unknown action: {args.action}")
         sys.exit(1)
 
 if __name__ == "__main__":
